@@ -5071,7 +5071,7 @@
     (property "Reference" "C10" (id 0) (at 90.17 83.2738 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
-    (property "Value" "220uF" (id 1) (at 84.455 81.28 0)
+    (property "Value" "200uF" (id 1) (at 84.455 81.28 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Footprint" "Capacitor_SMD:CP_Elec_6.3x5.4" (id 2) (at 86.995 85.09 0)
@@ -5605,7 +5605,7 @@
       (reference "C9") (unit 1) (value "10uF") (footprint "Capacitor_SMD:C_1206_3216Metric")
     )
     (path "/d4ca4df9-f6e9-4a1a-b812-e3310f494875"
-      (reference "C10") (unit 1) (value "220uF") (footprint "Capacitor_SMD:CP_Elec_6.3x5.4")
+      (reference "C10") (unit 1) (value "200uF") (footprint "Capacitor_SMD:CP_Elec_6.3x5.4")
     )
     (path "/df2a741a-2d64-4d64-b365-327db97ffdbe"
       (reference "C11") (unit 1) (value "10uF") (footprint "Capacitor_SMD:CP_Elec_5x5.4")
