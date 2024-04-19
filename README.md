@@ -2,6 +2,7 @@
  
 This is meant to be a cheap way to program W27C512 EEPROMs which require 14V erasure voltage and 12V programming voltage... Or basically any other 24/28/32 pin ROM requiring from 5V to 27V programming/erasure voltage. 
 
+You can either make your own, get a PCB from JLCPCB using the guide below or order a kit with SMD components presoldered from iMania.dk (sockets available if needed).
 Kits with SMD components presoldered are available from my store, iMania.dk: https://www.imania.dk/index.php?currency=EUR&cPath=204&sort=5a&language=en
 
 Requires a dev board with a processor or microcontroller. Like a [65uino](https://github.com/AndersBNielsen/65uino) or Arduino Uno for instance. 
