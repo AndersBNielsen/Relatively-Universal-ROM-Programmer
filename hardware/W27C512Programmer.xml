@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/abn/Library/CloudStorage/OneDrive-AalborgUniversitet/Privat/W27C512Programmer/hardware/W27C512Programmer.kicad_sch</source>
-    <date>Thursday, 18 April 2024 at 23.25.05</date>
+    <date>Tuesday, 30 April 2024 at 10.46.28</date>
     <tool>Eeschema (6.0.7-1)-1</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -243,7 +243,11 @@
     <comp ref="D9">
       <value>RED</value>
       <footprint>LED_SMD:LED_0603_1608Metric</footprint>
+      <fields>
+        <field name="LCSC">C2286</field>
+      </fields>
       <libsource lib="Device" part="LED_Small" description="Light emitting diode, small symbol"/>
+      <property name="LCSC" value="C2286"/>
       <property name="Sheetname" value=""/>
       <property name="Sheetfile" value="W27C512Programmer.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>
@@ -502,7 +506,11 @@
     <comp ref="D29">
       <value>RED</value>
       <footprint>LED_SMD:LED_0603_1608Metric</footprint>
+      <fields>
+        <field name="LCSC">C2286</field>
+      </fields>
       <libsource lib="Device" part="LED_Small" description="Light emitting diode, small symbol"/>
+      <property name="LCSC" value="C2286"/>
       <property name="Sheetname" value=""/>
       <property name="Sheetfile" value="W27C512Programmer.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>
@@ -511,7 +519,11 @@
     <comp ref="D30">
       <value>RED</value>
       <footprint>LED_SMD:LED_0603_1608Metric</footprint>
+      <fields>
+        <field name="LCSC">C2286</field>
+      </fields>
       <libsource lib="Device" part="LED_Small" description="Light emitting diode, small symbol"/>
+      <property name="LCSC" value="C2286"/>
       <property name="Sheetname" value=""/>
       <property name="Sheetfile" value="W27C512Programmer.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>
@@ -520,7 +532,11 @@
     <comp ref="D31">
       <value>RED</value>
       <footprint>LED_SMD:LED_0603_1608Metric</footprint>
+      <fields>
+        <field name="LCSC">C2286</field>
+      </fields>
       <libsource lib="Device" part="LED_Small" description="Light emitting diode, small symbol"/>
+      <property name="LCSC" value="C2286"/>
       <property name="Sheetname" value=""/>
       <property name="Sheetfile" value="W27C512Programmer.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>
@@ -529,7 +545,11 @@
     <comp ref="D32">
       <value>RED</value>
       <footprint>LED_SMD:LED_0603_1608Metric</footprint>
+      <fields>
+        <field name="LCSC">C2286</field>
+      </fields>
       <libsource lib="Device" part="LED_Small" description="Light emitting diode, small symbol"/>
+      <property name="LCSC" value="C2286"/>
       <property name="Sheetname" value=""/>
       <property name="Sheetfile" value="W27C512Programmer.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>
@@ -871,6 +891,33 @@
       <property name="Sheetfile" value="W27C512Programmer.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>d371f331-088b-402a-be9f-24102694d91a</tstamps>
+    </comp>
+    <comp ref="R14">
+      <value>22k</value>
+      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
+      <libsource lib="Device" part="R_Small" description="Resistor, small symbol"/>
+      <property name="Sheetname" value=""/>
+      <property name="Sheetfile" value="W27C512Programmer.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>09f45d1b-b6c6-4434-98d0-17839af9735f</tstamps>
+    </comp>
+    <comp ref="R15">
+      <value>22k</value>
+      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
+      <libsource lib="Device" part="R_Small" description="Resistor, small symbol"/>
+      <property name="Sheetname" value=""/>
+      <property name="Sheetfile" value="W27C512Programmer.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>86fe30d6-796b-466b-aae1-9b0c47b01a91</tstamps>
+    </comp>
+    <comp ref="R16">
+      <value>270k</value>
+      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
+      <libsource lib="Device" part="R_Small" description="Resistor, small symbol"/>
+      <property name="Sheetname" value=""/>
+      <property name="Sheetfile" value="W27C512Programmer.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>4d1583f0-b28f-427e-9716-cfaae1d7a0f8</tstamps>
     </comp>
     <comp ref="R19">
       <value>22k</value>
@@ -1874,6 +1921,7 @@
       <node ref="Q4" pin="2" pinfunction="E" pintype="passive"/>
       <node ref="Q5" pin="2" pinfunction="E" pintype="passive"/>
       <node ref="R12" pin="2" pintype="passive"/>
+      <node ref="R15" pin="2" pintype="passive"/>
       <node ref="R19" pin="2" pintype="passive"/>
       <node ref="R20" pin="2" pintype="passive"/>
       <node ref="R21" pin="2" pintype="passive"/>
@@ -2165,41 +2213,49 @@
       <node ref="R8" pin="2" pintype="passive"/>
       <node ref="RV1" pin="1" pinfunction="1" pintype="passive"/>
     </net>
-    <net code="91" name="Net-(RN1-Pad1)">
+    <net code="91" name="Net-(R14-Pad1)">
+      <node ref="R14" pin="1" pintype="passive"/>
+      <node ref="R15" pin="1" pintype="passive"/>
+    </net>
+    <net code="92" name="Net-(R16-Pad2)">
+      <node ref="R14" pin="2" pintype="passive"/>
+      <node ref="R16" pin="2" pintype="passive"/>
+    </net>
+    <net code="93" name="Net-(RN1-Pad1)">
       <node ref="RN1" pin="1" pinfunction="R1.1" pintype="passive"/>
       <node ref="RN1" pin="2" pinfunction="R2.1" pintype="passive"/>
       <node ref="RV1" pin="2" pinfunction="2" pintype="passive"/>
     </net>
-    <net code="92" name="Net-(RN1-Pad6)">
+    <net code="94" name="Net-(RN1-Pad6)">
       <node ref="RN1" pin="6" pinfunction="R3.2" pintype="passive"/>
       <node ref="RN1" pin="7" pinfunction="R2.2" pintype="passive"/>
       <node ref="RN1" pin="8" pinfunction="R1.2" pintype="passive"/>
     </net>
-    <net code="93" name="P1_VPP_ENABLE">
+    <net code="95" name="P1_VPP_ENABLE">
       <node ref="D5" pin="2" pinfunction="A" pintype="passive"/>
       <node ref="J1" pin="4" pinfunction="Pin_4" pintype="passive"/>
       <node ref="R25" pin="1" pintype="passive"/>
       <node ref="U4" pin="16" pinfunction="Q3" pintype="tri_state"/>
     </net>
-    <net code="94" name="RLSBLE">
+    <net code="96" name="RLSBLE">
       <node ref="U2" pin="11" pinfunction="Load" pintype="input"/>
     </net>
-    <net code="95" name="RMSBLE">
+    <net code="97" name="RMSBLE">
       <node ref="U3" pin="11" pinfunction="Load" pintype="input"/>
     </net>
-    <net code="96" name="SCL">
+    <net code="98" name="SCL">
       <node ref="J5" pin="3" pinfunction="Pin_3" pintype="passive"/>
     </net>
-    <net code="97" name="SCL2">
+    <net code="99" name="SCL2">
       <node ref="J7" pin="4" pinfunction="Pin_4" pintype="passive"/>
     </net>
-    <net code="98" name="SDA">
+    <net code="100" name="SDA">
       <node ref="J5" pin="4" pinfunction="Pin_4" pintype="passive"/>
     </net>
-    <net code="99" name="SDA2">
+    <net code="101" name="SDA2">
       <node ref="J7" pin="3" pinfunction="Pin_3" pintype="passive"/>
     </net>
-    <net code="100" name="VPE">
+    <net code="102" name="VPE">
       <node ref="C11" pin="1" pintype="passive"/>
       <node ref="C9" pin="1" pintype="passive"/>
       <node ref="D1" pin="1" pinfunction="K" pintype="passive"/>
@@ -2209,35 +2265,36 @@
       <node ref="Q6" pin="2" pinfunction="E" pintype="passive"/>
       <node ref="Q7" pin="2" pinfunction="E" pintype="passive"/>
       <node ref="Q8" pin="2" pinfunction="E" pintype="passive"/>
+      <node ref="R16" pin="1" pintype="passive"/>
       <node ref="R29" pin="1" pintype="passive"/>
       <node ref="R30" pin="1" pintype="passive"/>
       <node ref="R31" pin="1" pintype="passive"/>
       <node ref="R4" pin="1" pintype="passive"/>
       <node ref="R8" pin="1" pintype="passive"/>
     </net>
-    <net code="101" name="VPE_ENABLE">
+    <net code="103" name="VPE_ENABLE">
       <node ref="D4" pin="2" pinfunction="A" pintype="passive"/>
       <node ref="J1" pin="3" pinfunction="Pin_3" pintype="passive"/>
       <node ref="R23" pin="1" pintype="passive"/>
       <node ref="U4" pin="17" pinfunction="Q2" pintype="tri_state"/>
     </net>
-    <net code="108" name="unconnected-(RV1-Pad3)">
+    <net code="109" name="unconnected-(RV1-Pad3)">
       <node ref="RV1" pin="3" pinfunction="3" pintype="passive+no_connect"/>
     </net>
-    <net code="109" name="~{REG_DISABLE}">
+    <net code="110" name="~{REG_DISABLE}">
       <node ref="D9" pin="2" pinfunction="A" pintype="passive"/>
       <node ref="J1" pin="8" pinfunction="Pin_8" pintype="passive"/>
       <node ref="R1" pin="2" pintype="passive"/>
       <node ref="U1" pin="4" pinfunction="~{SHDN}" pintype="input"/>
       <node ref="U4" pin="12" pinfunction="Q7" pintype="tri_state"/>
     </net>
-    <net code="110" name="~{ROM_CE}">
+    <net code="111" name="~{ROM_CE}">
       <node ref="U5" pin="22" pinfunction="CE" pintype="input"/>
     </net>
-    <net code="111" name="~{ROM_OE}">
+    <net code="112" name="~{ROM_OE}">
       <node ref="D12" pin="2" pinfunction="A" pintype="passive"/>
     </net>
-    <net code="112" name="~{RW}">
+    <net code="113" name="~{RW}">
       <node ref="D8" pin="2" pinfunction="A" pintype="passive"/>
       <node ref="J1" pin="7" pinfunction="Pin_7" pintype="passive"/>
       <node ref="U4" pin="13" pinfunction="Q6" pintype="tri_state"/>
