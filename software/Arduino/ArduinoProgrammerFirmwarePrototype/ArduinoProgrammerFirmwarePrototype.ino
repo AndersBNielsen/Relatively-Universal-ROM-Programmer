@@ -30,9 +30,13 @@ const int ANALOG_PIN = A2; // Analog pin connected to VEP
 #define A9_VPP_ENABLE 0b00000010
 #define VPE_ENABLE    0b00000100
 #define P1_VPP_ENABLE 0b00001000
+#define A17_E         0b00010000
+#define A18_E         0b00100000
+#define RW            0b01000000
 #define REG_DISABLE   0b10000000
 
 byte pattern = 0xAA;
+uint16_t cAddr = 0;
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -88,15 +92,21 @@ void loop() {
   display.println(" V");
   display.display();
 
-  //delay(1000); // Update every second
-  latchControlByte(REG_DISABLE | VPE_TO_VPP);
+  latchControlByte(RW); //Assuming we might want to read a 32pin ROM with RW on pin 31. 
 
+  byte byteRead = readAddress(cAddr);
+  cAddr++;
+
+  display.println(byteRead,HEX); //Debugging
+  display.display();
+
+  delay(100); //To hopefully make the serial receiver forget the junk it just got, before we send real data. 
   Serial.begin(9600);
-  Serial.println(F("Test"));
+  Serial.print(byteRead,HEX);
   Serial.end();
 
   // Introduce a delay before repeating the process
-  delay(1000); // Adjust delay time as needed
+  delay(100); // Adjust delay time as needed
 
 /*
    for (uint32_t address = 0; address <= 65535; ++address) {
@@ -114,7 +124,15 @@ void enableRegulator() {
   latchControlByte(outputState);
 }
 
-
+byte readAddress(uint16_t addr) {
+  latchAddress(addr);
+  DDRD = 0; //PORTD as input
+  PORTB &= ~(ROM_OE | ROM_CE);
+  delayMicroseconds(5); //Let it settle a bit. Maybe a NOP would do. 
+  byte val = PIND;
+  PORTB = (ROM_OE | ROM_CE);
+  return val;
+}
 
 void latchControlByte(byte controlByte) {
   // Set control byte using direct port manipulation
@@ -152,9 +170,6 @@ void latchAddress(uint16_t address) {
     // Write LSB to PORTD
     PORTD = lsb;
 
-    // Delay to ensure proper latching
-    delayMicroseconds(1);
-
     // Set RLSBLE pin LOW to unlatch lower 8 bits of address (LSB)
     PORTB &= ~RLSBLE;
 
@@ -169,9 +184,6 @@ void latchAddress(uint16_t address) {
 
     // Write MSB to PORTD
     PORTD = msb;
-
-    // Delay to ensure proper latching
-    delayMicroseconds(1);
 
     // Set RMSBLE pin LOW to unlatch higher 8 bits of address (MSB)
     PORTB &= ~RMSBLE;
