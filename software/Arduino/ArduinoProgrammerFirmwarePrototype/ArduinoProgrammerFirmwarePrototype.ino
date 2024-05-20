@@ -35,8 +35,20 @@ const int ANALOG_PIN = A2; // Analog pin connected to VEP
 #define RW            0b01000000
 #define REG_DISABLE   0b10000000
 
+#define ROMSIZE       4096
 byte pattern = 0xAA;
 uint16_t cAddr = 0;
+byte buffer[512];
+
+
+// Define a struct to hold the command, block size, and stop page
+struct Command {
+  uint8_t command;
+  uint8_t blockSize;
+  uint8_t stopPage;
+};
+
+Command currentCommand;
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -68,45 +80,108 @@ delayMicroseconds(1);
   display.clearDisplay();
   display.display();
 
+  Serial.begin(9600);
+
 }
 
 void loop() {
+  if (Serial.available()) {
+    byte incomingByte = Serial.read();
+    if (incomingByte == 0xAA ) {
+      while (!Serial.available()) { 
+        ;; //Maybe we don't need it
+      }
+      currentCommand.command = Serial.read(); 
+      currentCommand.blockSize = Serial.read();
+      currentCommand.stopPage = Serial.read();
 
-  // Read voltage from analog pin A2
-  int sensorValue = analogRead(A2);
+      if (currentCommand.command == 0x02) {
+        while (1) { 
+        Serial.write(0xAA);
+        while (!Serial.available()) { 
+        ;; //Maybe we don't need it
+        }
+        // Read the block of data
+        size_t bytesRead = Serial.readBytes((char *)buffer, currentCommand.blockSize);
+            // Check if we've read the entire block
+          if (bytesRead == currentCommand.blockSize) {
+            // Process the buffer data
+           Serial.end();
+           writefromBuffer(cAddr, currentCommand.blockSize);
+           cAddr += currentCommand.blockSize;
+            
+          } else {
+            display.println("Received bad block");
+            break;
+          }
+          Serial.begin(9600);
+          delay(1);
+      }
+      }
+    } 
 
- // Convert ADC reading to voltage (assuming 5V reference voltage)
-  float v_in = sensorValue * (V_REF / 1023.0);
-
-  // Calculate voltage at VEP using voltage divider formula
-  float v_vep = v_in * (R1 + R2) / R2;
-
-    // Display voltage on OLED display
-  display.clearDisplay();
+  } else {
+    display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
-  display.print("Voltage at VEP:");
-  display.setCursor(0, 10);
-  display.print(v_vep, 2); // Display voltage with 2 decimal places
-  display.println(" V");
-  display.display();
+  }
 
-  latchControlByte(RW); //Assuming we might want to read a 32pin ROM with RW on pin 31. 
+  //latchControlByte(RW); //Assuming we might want to read a 32pin ROM with RW on pin 31. 
 
-  byte byteRead = readAddress(cAddr);
+  /*byte byteRead = readAddress(cAddr);
   cAddr++;
-
-  display.println(byteRead,HEX); //Debugging
-  display.display();
-
   delay(100); //To hopefully make the serial receiver forget the junk it just got, before we send real data. 
   Serial.begin(9600);
   Serial.print(byteRead,HEX);
   Serial.end();
+*/
 
-  // Introduce a delay before repeating the process
-  delay(100); // Adjust delay time as needed
+/*
+for (int q = 0; q < 4; q++) {
+writeByte(cAddr+q, 0xAA);
+}
+delay(1000);
+
+  byte gotbyte = readAddress(cAddr);
+display.print(gotbyte,HEX); //Debugging
+display.display();
+delay(1000);
+cAddr+=4;
+*/
+
+//eraseW27C512();
+/*
+for (int i = 0; i < 4; i++) {
+  writeByte(i, 0xAA);
+}
+
+for (int q = 0; q < 5; q++) {
+byte gotbyte = readAddress(q);
+display.print(gotbyte,HEX); //Debugging
+display.display();
+}
+
+while (1) {
+  ;;
+}
+*/
+/*
+for (int i = 0; i < ROMSIZE/512; i++) {
+  // Read data into buffer
+  for (uint16_t addr = 0; addr < 512; addr++) {
+    buffer[addr] = readAddress(cAddr);
+    cAddr++;
+  }
+
+  delay(1);
+  Serial.begin(19200);
+  for (uint16_t addr = 0; addr < 512; addr++) {
+    Serial.print(buffer[addr],HEX);  
+  }
+  Serial.end();
+}
+*/
 
 /*
    for (uint32_t address = 0; address <= 65535; ++address) {
@@ -124,11 +199,88 @@ void enableRegulator() {
   latchControlByte(outputState);
 }
 
+void displayVEP() {
+    // Read voltage from analog pin A2
+  int sensorValue = analogRead(A2);
+ // Convert ADC reading to voltage (assuming 5V reference voltage)
+  float v_in = sensorValue * (V_REF / 1023.0);
+  // Calculate voltage at VEP using voltage divider formula
+  float v_vep = v_in * (R1 + R2) / R2;
+
+    // Display voltage on OLED display
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.print("Voltage at VEP:");
+  display.setCursor(0, 10);
+  display.print(v_vep, 2); // Display voltage with 2 decimal places
+  display.println(" V");
+  display.display();
+}
+
+//For single byte writes 
+void writeByte(uint16_t address, byte data) {
+latchAddress(address);
+latchControlByte(VPE_TO_VPP | REG_DISABLE);
+delay(50); //Settle before enabling
+latchControlByte(VPE_TO_VPP | REG_DISABLE | VPE_ENABLE );
+//delay(255); //What works on 65uino
+DDRD = 0xFF; //Output
+PORTD = data; 
+PORTB &= ~(ROM_CE);
+delayMicroseconds(101);
+PORTB |= ROM_CE;
+latchControlByte(0x00); 
+}
+
+void writefromBuffer(uint16_t addr, uint16_t len) {
+  latchAddress(addr);
+  latchControlByte(VPE_TO_VPP | REG_DISABLE);
+  delay(50); //Settle before enabling
+  latchControlByte(VPE_TO_VPP | REG_DISABLE | VPE_ENABLE );
+  DDRD = 0xFF; //Output
+  for (int i = 0; i < len; i++){
+    PORTD = buffer[i];
+  } 
+}
+
+void eraseW27C512() {
+if (getROMID() == 0xDA08) {
+  latchAddress(0);
+  enableRegulator();
+  delay(50);
+  latchControlByte(A9_VPP_ENABLE | REG_DISABLE | VPE_ENABLE );
+  delay(50);
+  PORTB &= ~(ROM_CE);
+  delay(102);
+  PORTB |= ROM_CE;
+  }
+  latchControlByte(0);
+}
+
+uint16_t getROMID() {
+  enableRegulator();
+  // Introduce a delay before repeating the process
+  delay(50); // Adjust delay time as needed
+  latchControlByte(VPE_TO_VPP | REG_DISABLE | A9_VPP_ENABLE );
+  delay(50);
+  byte byteRead = readAddress(0x0000);
+  uint16_t romid = byteRead;
+  romid = romid <<8;
+  byteRead = readAddress(0x0001);
+  romid |= byteRead;
+  display.println(romid,HEX); //Debugging
+  latchControlByte(0);
+  display.display();
+return romid;
+}
+
 byte readAddress(uint16_t addr) {
   latchAddress(addr);
   DDRD = 0; //PORTD as input
   PORTB &= ~(ROM_OE | ROM_CE);
-  delayMicroseconds(5); //Let it settle a bit. Maybe a NOP would do. 
+  delayMicroseconds(10); //Let it settle a bit. Maybe a NOP would do. 
   byte val = PIND;
   PORTB = (ROM_OE | ROM_CE);
   return val;
@@ -141,9 +293,7 @@ void latchControlByte(byte controlByte) {
 
 // Set CTRL_LE pin HIGH to latch
   PORTB |= CTRL_LE;
-  // Delay to ensure proper latching
-  delayMicroseconds(1);
-
+  delayMicroseconds(1); 
   // Set CTRL_LE pin LOW to unlatch
   PORTB &= ~(CTRL_LE);
 }
@@ -155,13 +305,10 @@ byte prevMSB = 0;
 void latchAddress(uint16_t address) {
   // Extract the least significant byte
   byte lsb = address & 0xFF;
-
   // Extract the most significant byte
   byte msb = (address >> 8) & 0xFF;
-
   // Set PORTD as output
   DDRD = 0xFF; // Set PORTD as output
-
   // Check if LSB has changed
   if (lsb != prevLSB) {
     // Set CTRL_LE pin HIGH to latch lower 8 bits of address (LSB)
@@ -169,10 +316,8 @@ void latchAddress(uint16_t address) {
 
     // Write LSB to PORTD
     PORTD = lsb;
-
     // Set RLSBLE pin LOW to unlatch lower 8 bits of address (LSB)
     PORTB &= ~RLSBLE;
-
     // Update prevLSB
     prevLSB = lsb;
   }
@@ -184,10 +329,8 @@ void latchAddress(uint16_t address) {
 
     // Write MSB to PORTD
     PORTD = msb;
-
     // Set RMSBLE pin LOW to unlatch higher 8 bits of address (MSB)
     PORTB &= ~RMSBLE;
-
     // Update prevMSB
     prevMSB = msb;
   }
