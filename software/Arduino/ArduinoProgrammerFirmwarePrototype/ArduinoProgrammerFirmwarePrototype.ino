@@ -38,7 +38,7 @@ const int ANALOG_PIN = A2; // Analog pin connected to VEP
 #define ROMSIZE       4096
 byte pattern = 0xAA;
 uint16_t cAddr = 0;
-byte buffer[512];
+byte buffer[128];
 
 
 // Define a struct to hold the command, block size, and stop page
@@ -52,7 +52,6 @@ Command currentCommand;
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-  
   // Set pins D0-D7 as outputs
   DDRD = 0xFF; // Set all D0-D7 pins as outputs
   // Set control signals as outputs
@@ -63,23 +62,26 @@ void setup() {
   
   // Set all latch pins HIGH using direct port manipulation and disable ROM 
   PORTB |= RLSBLE | RMSBLE | ROM_OE | CTRL_LE | ROM_CE;
-
 delayMicroseconds(1);
-
   // Set all latch pins LOW using direct port manipulation
   PORTB &= ~(RLSBLE | RMSBLE | CTRL_LE); // Set pins D8, D9, D11 low
 
-  // Initialize the OLED display
+    // Initialize the OLED display
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-  //  Serial.println(F("SSD1306 allocation failed"));
+    latchControlByte(0x40);
     for(;;);
   }
+  
   delay(100); // Pause for 2 seconds
 
   // Clear the display
   display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Boot complete..");
   display.display();
 
+  latchControlByte(0x10); //Can't latch things when serial is enabled
   Serial.begin(9600);
 
 }
@@ -92,39 +94,50 @@ void loop() {
         ;; //Maybe we don't need it
       }
       currentCommand.command = Serial.read(); 
-      currentCommand.blockSize = Serial.read();
-      currentCommand.stopPage = Serial.read();
 
-      if (currentCommand.command == 0x02) {
+      if (currentCommand.command == 0x01) {
+        //Dump ROM via serial
+        display.println("Not implemented");
+      }
+
+      if (currentCommand.command == 0x03) {
+        Serial.end();
+        display.println("Erasing ROM with ID: ");
+        eraseW27C512();
+      }
+
+      if (currentCommand.command == 0x02) { 
+        //Burn ROM from serial
+        currentCommand.blockSize = Serial.read();
+        currentCommand.stopPage = Serial.read();
         while (1) { 
-        Serial.write(0xAA);
-        while (!Serial.available()) { 
-        ;; //Maybe we don't need it
-        }
-        // Read the block of data
-        size_t bytesRead = Serial.readBytes((char *)buffer, currentCommand.blockSize);
+          Serial.write(0xAA);
+          while (!Serial.available()) { 
+          ;; //Maybe we don't need it
+           }
+          // Read the block of data
+          size_t bytesRead = Serial.readBytes((char *)buffer, currentCommand.blockSize);
             // Check if we've read the entire block
           if (bytesRead == currentCommand.blockSize) {
             // Process the buffer data
            Serial.end();
+           delay(5);
            writefromBuffer(cAddr, currentCommand.blockSize);
-           cAddr += currentCommand.blockSize;
-            
           } else {
-            display.println("Received bad block");
+            display.println("Bad block");
             break;
           }
           Serial.begin(9600);
-          delay(1);
-      }
+          delay(5);
+          }
       }
     } 
 
   } else {
-    display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
+  //display.setCursor(0, 0);
+  display.print(".");
+  display.display();
+  delay(500);
   }
 
   //latchControlByte(RW); //Assuming we might want to read a 32pin ROM with RW on pin 31. 
@@ -235,23 +248,30 @@ latchControlByte(0x00);
 }
 
 void writefromBuffer(uint16_t addr, uint16_t len) {
-  latchAddress(addr);
   latchControlByte(VPE_TO_VPP | REG_DISABLE);
   delay(50); //Settle before enabling
   latchControlByte(VPE_TO_VPP | REG_DISABLE | VPE_ENABLE );
+  delay(200);
   DDRD = 0xFF; //Output
   for (int i = 0; i < len; i++){
+    latchAddress(addr);
     PORTD = buffer[i];
+    PORTB &= ~(ROM_CE);
+    delayMicroseconds(101);
+    PORTB |= ROM_CE;
+    addr++;
   } 
+  cAddr = addr;
 }
 
 void eraseW27C512() {
 if (getROMID() == 0xDA08) {
-  latchAddress(0);
+  DDRD = 0xFF;
+  latchAddress(0x0000);
   enableRegulator();
-  delay(50);
+  delay(100);
   latchControlByte(A9_VPP_ENABLE | REG_DISABLE | VPE_ENABLE );
-  delay(50);
+  delay(500);
   PORTB &= ~(ROM_CE);
   delay(102);
   PORTB |= ROM_CE;
@@ -277,10 +297,11 @@ return romid;
 }
 
 byte readAddress(uint16_t addr) {
+  DDRD = 0xFF; 
   latchAddress(addr);
   DDRD = 0; //PORTD as input
   PORTB &= ~(ROM_OE | ROM_CE);
-  delayMicroseconds(10); //Let it settle a bit. Maybe a NOP would do. 
+  delayMicroseconds(5); //Let it settle a bit. Maybe a NOP would do. 
   byte val = PIND;
   PORTB = (ROM_OE | ROM_CE);
   return val;
@@ -293,7 +314,6 @@ void latchControlByte(byte controlByte) {
 
 // Set CTRL_LE pin HIGH to latch
   PORTB |= CTRL_LE;
-  delayMicroseconds(1); 
   // Set CTRL_LE pin LOW to unlatch
   PORTB &= ~(CTRL_LE);
 }
@@ -307,15 +327,13 @@ void latchAddress(uint16_t address) {
   byte lsb = address & 0xFF;
   // Extract the most significant byte
   byte msb = (address >> 8) & 0xFF;
-  // Set PORTD as output
-  DDRD = 0xFF; // Set PORTD as output
+  //Assuming PORTD is output
   // Check if LSB has changed
   if (lsb != prevLSB) {
-    // Set CTRL_LE pin HIGH to latch lower 8 bits of address (LSB)
-    PORTB |= RLSBLE;
-
     // Write LSB to PORTD
     PORTD = lsb;
+    // Set CTRL_LE pin HIGH to latch lower 8 bits of address (LSB)
+    PORTB |= RLSBLE;
     // Set RLSBLE pin LOW to unlatch lower 8 bits of address (LSB)
     PORTB &= ~RLSBLE;
     // Update prevLSB
@@ -324,11 +342,10 @@ void latchAddress(uint16_t address) {
 
   // Check if MSB has changed
   if (msb != prevMSB) {
-    // Set CTRL_LE pin HIGH to latch higher 8 bits of address (MSB)
-    PORTB |= RMSBLE;
-
     // Write MSB to PORTD
     PORTD = msb;
+    // Set CTRL_LE pin HIGH to latch higher 8 bits of address (MSB)
+    PORTB |= RMSBLE;
     // Set RMSBLE pin LOW to unlatch higher 8 bits of address (MSB)
     PORTB &= ~RMSBLE;
     // Update prevMSB
