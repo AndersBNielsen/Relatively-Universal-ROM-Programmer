@@ -8,6 +8,8 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+#define BAUDRATE 57600
+
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 
@@ -35,10 +37,11 @@ const int ANALOG_PIN = A2; // Analog pin connected to VEP
 #define RW            0b01000000
 #define REG_DISABLE   0b10000000
 
-#define ROMSIZE       4096
+uint32_t romsize = 4096; //We need to support more than 16 address bits
 byte pattern = 0xAA;
 uint16_t cAddr = 0;
-byte buffer[128];
+byte buffer[128]; 
+#define BUFFERSIZE 128
 
 
 // Define a struct to hold the command, block size, and stop page
@@ -82,7 +85,7 @@ delayMicroseconds(1);
   display.display();
 
   latchControlByte(0x10); //Can't latch things when serial is enabled
-  Serial.begin(9600);
+  Serial.begin(BAUDRATE);
 
 }
 
@@ -97,8 +100,37 @@ void loop() {
 
       if (currentCommand.command == 0x01) {
         //Dump ROM via serial
-        display.println("Not implemented");
-      }
+        currentCommand.blockSize = Serial.read();
+        display.print(currentCommand.blockSize);
+        byte cAddrL = Serial.read();
+        byte cAddrH = Serial.read();
+        cAddr = cAddrH << 8;
+        cAddr |= cAddrL;
+        /*display.print(" ");
+        display.print(cAddr);
+        display.print(" ");*/
+        romsize = (Serial.read() << 8); //Reads stoppage a.k.a. the high byte of ROM size
+        if (romsize == 0) romsize = 65536; //Need a fix to support A17+
+        //display.print(romsize);
+        //display.display();
+        Serial.end();
+
+        for (int i = 0; i < romsize/currentCommand.blockSize; i++) {
+        // Read data into buffer
+        for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
+          buffer[addr] = readAddress(cAddr);
+          cAddr++;
+        }
+
+        Serial.begin(BAUDRATE);
+        Serial.write(0xAA);
+        for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
+          Serial.write(buffer[addr]);  
+        }
+        Serial.end();
+        }
+
+        }
 
       if (currentCommand.command == 0x03) {
         Serial.end();
@@ -110,6 +142,12 @@ void loop() {
         //Burn ROM from serial
         currentCommand.blockSize = Serial.read();
         currentCommand.stopPage = Serial.read();
+        Serial.end();
+        latchControlByte(VPE_TO_VPP | REG_DISABLE);
+        delay(50); //Settle before enabling
+        latchControlByte(VPE_TO_VPP | REG_DISABLE | VPE_ENABLE );
+        delay(200);
+        Serial.begin(BAUDRATE);
         while (1) { 
           Serial.write(0xAA);
           while (!Serial.available()) { 
@@ -121,14 +159,14 @@ void loop() {
           if (bytesRead == currentCommand.blockSize) {
             // Process the buffer data
            Serial.end();
-           delay(5);
+           delay(1);
            writefromBuffer(cAddr, currentCommand.blockSize);
           } else {
             display.println("Bad block");
             break;
           }
-          Serial.begin(9600);
-          delay(5);
+          Serial.begin(BAUDRATE);
+          delay(1);
           }
       }
     } 
@@ -145,7 +183,7 @@ void loop() {
   /*byte byteRead = readAddress(cAddr);
   cAddr++;
   delay(100); //To hopefully make the serial receiver forget the junk it just got, before we send real data. 
-  Serial.begin(9600);
+  Serial.begin(BAUDRATE);
   Serial.print(byteRead,HEX);
   Serial.end();
 */
@@ -248,10 +286,6 @@ latchControlByte(0x00);
 }
 
 void writefromBuffer(uint16_t addr, uint16_t len) {
-  latchControlByte(VPE_TO_VPP | REG_DISABLE);
-  delay(50); //Settle before enabling
-  latchControlByte(VPE_TO_VPP | REG_DISABLE | VPE_ENABLE );
-  delay(200);
   DDRD = 0xFF; //Output
   for (int i = 0; i < len; i++){
     latchAddress(addr);
