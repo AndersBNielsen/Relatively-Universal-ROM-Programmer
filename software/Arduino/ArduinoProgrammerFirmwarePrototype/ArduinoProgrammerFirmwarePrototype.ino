@@ -8,8 +8,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#define BAUDRATE 57600
-
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 
@@ -43,6 +41,7 @@ uint16_t cAddr = 0;
 byte buffer[128]; 
 #define BUFFERSIZE 128
 
+uint32_t baudrate = 9600;
 
 // Define a struct to hold the command, block size, and stop page
 struct Command {
@@ -64,7 +63,7 @@ void setup() {
   PORTD = 0;
   
   // Set all latch pins HIGH using direct port manipulation and disable ROM 
-  PORTB |= RLSBLE | RMSBLE | ROM_OE | CTRL_LE | ROM_CE;
+  PORTB |= RLSBLE | RMSBLE | ROM_OE | CTRL_LE | ROM_CE | USRBTN;
 delayMicroseconds(1);
   // Set all latch pins LOW using direct port manipulation
   PORTB &= ~(RLSBLE | RMSBLE | CTRL_LE); // Set pins D8, D9, D11 low
@@ -81,11 +80,12 @@ delayMicroseconds(1);
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.println("Boot complete..");
+  display.println("Boot complete.");
+   display.println("Remove ROM and press USR button to calibrate VEP. ");
   display.display();
 
   latchControlByte(0x10); //Can't latch things when serial is enabled
-  Serial.begin(BAUDRATE);
+  Serial.begin(baudrate);
 
 }
 
@@ -106,36 +106,31 @@ void loop() {
         byte cAddrH = Serial.read();
         cAddr = cAddrH << 8;
         cAddr |= cAddrL;
-        /*display.print(" ");
-        display.print(cAddr);
-        display.print(" ");*/
         romsize = (Serial.read() << 8); //Reads stoppage a.k.a. the high byte of ROM size
         if (romsize == 0) romsize = 65536; //Need a fix to support A17+
-        //display.print(romsize);
-        //display.display();
         Serial.end();
-
         for (int i = 0; i < romsize/currentCommand.blockSize; i++) {
         // Read data into buffer
         for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
           buffer[addr] = readAddress(cAddr);
           cAddr++;
         }
-
-        Serial.begin(BAUDRATE);
+        Serial.begin(baudrate);
         Serial.write(0xAA);
         for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
           Serial.write(buffer[addr]);  
         }
         Serial.end();
         }
-
-        }
+      }
 
       if (currentCommand.command == 0x03) {
+        byte vendor = Serial.read();
+        byte device = Serial.read();
+        uint16_t romid = (static_cast<uint16_t>(vendor) << 8) | device;
         Serial.end();
         display.println("Erasing ROM with ID: ");
-        eraseW27C512();
+        eraseW27C512(romid);
       }
 
       if (currentCommand.command == 0x02) { 
@@ -147,7 +142,7 @@ void loop() {
         delay(50); //Settle before enabling
         latchControlByte(VPE_TO_VPP | REG_DISABLE | VPE_ENABLE );
         delay(200);
-        Serial.begin(BAUDRATE);
+        Serial.begin(baudrate);
         while (1) { 
           Serial.write(0xAA);
           while (!Serial.available()) { 
@@ -165,84 +160,28 @@ void loop() {
             display.println("Bad block");
             break;
           }
-          Serial.begin(BAUDRATE);
+          Serial.begin(baudrate);
           delay(1);
           }
       }
     } 
-
   } else {
-  //display.setCursor(0, 0);
-  display.print(".");
-  display.display();
-  delay(500);
-  }
+  if (digitalRead(12) == 0) {
+    Serial.end();
+    enableRegulator();
+    display.println("Press RST after calibrating VEP");
+    while (1) {
+          displayVEP();
+          delay(17);
+      }
+    } else {
+      display.print(".");
+      display.display();
+      delay(500);
+    }
+  } //Serial 0xAA
 
-  //latchControlByte(RW); //Assuming we might want to read a 32pin ROM with RW on pin 31. 
-
-  /*byte byteRead = readAddress(cAddr);
-  cAddr++;
-  delay(100); //To hopefully make the serial receiver forget the junk it just got, before we send real data. 
-  Serial.begin(BAUDRATE);
-  Serial.print(byteRead,HEX);
-  Serial.end();
-*/
-
-/*
-for (int q = 0; q < 4; q++) {
-writeByte(cAddr+q, 0xAA);
-}
-delay(1000);
-
-  byte gotbyte = readAddress(cAddr);
-display.print(gotbyte,HEX); //Debugging
-display.display();
-delay(1000);
-cAddr+=4;
-*/
-
-//eraseW27C512();
-/*
-for (int i = 0; i < 4; i++) {
-  writeByte(i, 0xAA);
-}
-
-for (int q = 0; q < 5; q++) {
-byte gotbyte = readAddress(q);
-display.print(gotbyte,HEX); //Debugging
-display.display();
-}
-
-while (1) {
-  ;;
-}
-*/
-/*
-for (int i = 0; i < ROMSIZE/512; i++) {
-  // Read data into buffer
-  for (uint16_t addr = 0; addr < 512; addr++) {
-    buffer[addr] = readAddress(cAddr);
-    cAddr++;
-  }
-
-  delay(1);
-  Serial.begin(19200);
-  for (uint16_t addr = 0; addr < 512; addr++) {
-    Serial.print(buffer[addr],HEX);  
-  }
-  Serial.end();
-}
-*/
-
-/*
-   for (uint32_t address = 0; address <= 65535; ++address) {
-    latchAddress(address);
-    // Delay between each address (adjust as needed)
-    delayMicroseconds(30); // 10 milliseconds delay, for example
-  }
-*/
-  //pattern = (pattern >> 1) | (pattern << 7) ;
-}
+} //Loop
 
 void enableRegulator() {
   byte outputState = REG_DISABLE;  // Set REG_DISABLE bit
@@ -263,6 +202,7 @@ void displayVEP() {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
+  display.println("Press RST to return.");
   display.print("Voltage at VEP:");
   display.setCursor(0, 10);
   display.print(v_vep, 2); // Display voltage with 2 decimal places
@@ -298,8 +238,8 @@ void writefromBuffer(uint16_t addr, uint16_t len) {
   cAddr = addr;
 }
 
-void eraseW27C512() {
-if (getROMID() == 0xDA08) {
+void eraseW27C512(uint16_t romid) {
+if (getROMID() == romid) {
   DDRD = 0xFF;
   latchAddress(0x0000);
   enableRegulator();
