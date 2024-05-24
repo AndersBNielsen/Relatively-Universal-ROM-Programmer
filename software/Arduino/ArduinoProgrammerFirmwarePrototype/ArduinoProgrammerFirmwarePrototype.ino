@@ -14,6 +14,15 @@
 #define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+#define LONG_PRESS_TIME 1000  // Long press threshold in milliseconds
+
+int menuIndex = 0;
+unsigned long buttonPressTime = 0;
+bool buttonPressed = false;
+
+const char* menuItems[] = {"Calibrate VEP", "Display ROM ID", "Blank check ROM", "Erase W27C512"};
+const int menuItemsCount = sizeof(menuItems) / sizeof(menuItems[0]);
+
 const float R1 = 270.0;   // Resistance R1 in kohms
 const float R2 = 44.0;  // Resistance R2 in kohms
 const float V_REF = 5.06; // Reference voltage in volts
@@ -41,7 +50,7 @@ uint16_t cAddr = 0;
 byte buffer[128]; 
 #define BUFFERSIZE 128
 
-uint32_t baudrate = 9600;
+uint32_t baudrate = 19200;
 
 // Define a struct to hold the command, block size, and stop page
 struct Command {
@@ -81,7 +90,6 @@ delayMicroseconds(1);
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.println("Boot complete.");
-   display.println("Remove ROM and press USR button to calibrate VEP. ");
   display.display();
 
   latchControlByte(0x10); //Can't latch things when serial is enabled
@@ -101,7 +109,6 @@ void loop() {
       if (currentCommand.command == 0x01) {
         //Dump ROM via serial
         currentCommand.blockSize = Serial.read();
-        display.print(currentCommand.blockSize);
         byte cAddrL = Serial.read();
         byte cAddrH = Serial.read();
         cAddr = cAddrH << 8;
@@ -109,6 +116,11 @@ void loop() {
         romsize = (Serial.read() << 8); //Reads stoppage a.k.a. the high byte of ROM size
         if (romsize == 0) romsize = 65536; //Need a fix to support A17+
         Serial.end();
+        display.clearDisplay();
+        display.print(F("Sending ROM via serial..."));
+        display.print("Blocksize: ");
+        display.print(currentCommand.blockSize);
+        display.display();
         for (int i = 0; i < romsize/currentCommand.blockSize; i++) {
         // Read data into buffer
         for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
@@ -129,8 +141,12 @@ void loop() {
         byte device = Serial.read();
         uint16_t romid = (static_cast<uint16_t>(vendor) << 8) | device;
         Serial.end();
-        display.println("Erasing ROM with ID: ");
+        display.clearDisplay();
+        display.println(F("Erasing ROM with ID: "));
+        display.println(romid, HEX);
+        display.display();
         eraseW27C512(romid);
+        delay(3000);
       }
 
       if (currentCommand.command == 0x02) { 
@@ -138,6 +154,11 @@ void loop() {
         currentCommand.blockSize = Serial.read();
         currentCommand.stopPage = Serial.read();
         Serial.end();
+        display.clearDisplay();
+        display.println(F("Burning ROM from serial..."));
+        display.print("Blocksize: ");
+        display.print(currentCommand.blockSize);
+        display.display();
         latchControlByte(VPE_TO_VPP | REG_DISABLE);
         delay(50); //Settle before enabling
         latchControlByte(VPE_TO_VPP | REG_DISABLE | VPE_ENABLE );
@@ -166,6 +187,9 @@ void loop() {
       }
     } 
   } else {
+    handleButton();
+    displayMenu();
+  /*
   if (digitalRead(12) == 0) {
     Serial.end();
     enableRegulator();
@@ -179,6 +203,7 @@ void loop() {
       display.display();
       delay(500);
     }
+  */
   } //Serial 0xAA
 
 } //Loop
@@ -202,9 +227,8 @@ void displayVEP() {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
-  display.println("Press RST to return.");
-  display.print("Voltage at VEP:");
-  display.setCursor(0, 10);
+  display.println(F("Press RST to return."));
+  display.print(F("VEP Voltage: "));
   display.print(v_vep, 2); // Display voltage with 2 decimal places
   display.println(" V");
   display.display();
@@ -249,6 +273,9 @@ if (getROMID() == romid) {
   PORTB &= ~(ROM_CE);
   delay(102);
   PORTB |= ROM_CE;
+  } else {
+    display.println("ROM ID didn't match.");
+    display.display();
   }
   latchControlByte(0);
 }
@@ -264,9 +291,7 @@ uint16_t getROMID() {
   romid = romid <<8;
   byteRead = readAddress(0x0001);
   romid |= byteRead;
-  display.println(romid,HEX); //Debugging
   latchControlByte(0);
-  display.display();
 return romid;
 }
 
@@ -277,7 +302,7 @@ byte readAddress(uint16_t addr) {
   PORTB &= ~(ROM_OE | ROM_CE);
   delayMicroseconds(5); //Let it settle a bit. Maybe a NOP would do. 
   byte val = PIND;
-  PORTB = (ROM_OE | ROM_CE);
+  PORTB |= (ROM_OE | ROM_CE);
   return val;
 }
 
@@ -327,3 +352,105 @@ void latchAddress(uint16_t address) {
   }
 }
 
+void handleButton() {
+  if(digitalRead(12) == LOW) {
+    if (!buttonPressed) {
+      buttonPressed = true;
+      buttonPressTime = millis();
+    } else {
+      if (millis() - buttonPressTime > LONG_PRESS_TIME) {
+        // Long press detected
+        buttonPressed = false;  // Reset button state
+        handleSelection(menuIndex);
+        Serial.begin(baudrate);
+        delay(500);  // Prevent multiple triggers
+      }
+    }
+  } else {
+    if (buttonPressed) {
+      if (millis() - buttonPressTime < LONG_PRESS_TIME) {
+        // Short press detected
+        menuIndex++;
+        if (menuIndex >= menuItemsCount) menuIndex = 0;
+      }
+      buttonPressed = false;  // Reset button state
+    }
+  }
+}
+
+void displayMenu() {
+  display.clearDisplay();
+  for(int i = 0; i < menuItemsCount; i++) {
+    if(i == menuIndex) {
+      display.setTextColor(SSD1306_BLACK, SSD1306_WHITE); // Highlight selected item
+    } else {
+      display.setTextColor(SSD1306_WHITE);
+    }
+    display.setCursor(0, i*10);
+    display.println(menuItems[i]);
+  }
+  display.display();
+}
+
+
+void handleSelection(int index) {
+  //Calibrate VEP", "Display ROM ID", "Blank check ROM", "Erase W27C512"
+  switch (index) {
+    case 0:
+          Serial.end();
+          enableRegulator();
+          while (1) {
+                display.println(F("Press RST after calibrating VEP"));
+                displayVEP();
+                delay(17);
+            }
+      break;
+    case 1:
+          Serial.end();
+      display.clearDisplay();
+      display.setCursor(0,0);
+      display.print(F("Read ROM ID: "));
+      display.println(getROMID(),HEX);
+      display.display();
+           delay(3000);
+      break;
+    case 2:
+     Serial.end();
+     display.clearDisplay();
+     display.setCursor(0,0);
+     if (blankCheck() == 0) display.println("ROM is blank");
+     display.display();
+     delay(3000);
+      break;
+    case 3:
+     Serial.end();
+     display.clearDisplay();
+     display.setCursor(0,0);
+     display.println("Erasing ROM with ID 0xDA08 ");
+     eraseW27C512(0xDA08);
+     display.display();
+     delay(3000);
+      break;
+    default:
+      break;
+  }
+}
+
+uint16_t blankCheck () {
+  display.clearDisplay();
+  display.println(F("Checking if ROM is blank.."));
+  display.display();
+  uint32_t i;
+  for (i = 0; i < 65537; i++) {
+    byte data = readAddress(i);
+    if (data != 0xFF) {
+      display.print(data,HEX);
+      display.print(" found at address ");
+      display.println(i, HEX);
+      display.display();
+      return 1;
+    } 
+  }
+  if (i == 65537) i = 0;
+  return i;
+}
