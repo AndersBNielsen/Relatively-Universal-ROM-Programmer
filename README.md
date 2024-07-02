@@ -13,7 +13,7 @@ Software is in progress, some 6502 assembly sample code is available in my 65uin
 ![Romprogrammer-assembled-back](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/assets/7676834/a7d42e57-f92c-425c-8056-8d52cf872a45)
 ![ROMprogrammer-assembled](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/assets/7676834/76f9c717-3eef-4829-b960-7c5585a4fdbc)
 
-##Documentation
+## Documentation
 The Relatively Universal ROM Programmer relies on the standard JEDEC ROM footprint and common "high voltage" pins to work. BJT drivers handle putting the 12-27V programming voltage on the relevant pins. Which "high voltage" pins are active can be selected in software but jumpers have to be set for the different package sizes. A common configuration is to connect "A" to 5V and B to "A13", which covers the Winbond 27C512 and many other common 28 pin ROMs. This configuration also covers the 32 pin SST39SF010 (5V programmable).
 
 The "high voltage", VPE, is calibrated using the trimpot on the front of the board after activating the regulator in software. Please be aware that some dev boards WILL put VPE on several pins during reset - especially if reset is held down manually. This MAY damage a chip in the socket (especially if it's only 5V programmable). 
@@ -27,9 +27,9 @@ Documentation will be updated with FAQ.
 This project is kindly sponsored by JLCPCB. They offer cheap, professional looking PCBs and super fast delivery.
 
 Step 1: Get the gerber file zip package from the /hardware folder
-[hardware/UniversalProgrammerRev0b0.zip](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/blob/main/hardware/UniversalProgrammerRev0b0.zip) for instance.
+[hardware/UniversalProgrammerRev1b0.zip](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/blob/main/hardware/UniversalProgrammerRev1b0.zip) for instance.
 
-Step 2: Upload to JLCPCB https://jlcpcb.com
+Step 2: Upload to JLCPCB [https://jlcpcb.com](https://jlcpcb.com/?from=Anders_N)
 
 <img src="https://github.com/AndersBNielsen/65uino/blob/main/images/upload.png?raw=true" alt="Upload" style="width: 220px;">
 
@@ -44,4 +44,4 @@ If you want JLCPCB to assemble a board, the BOM and placement files are also in 
 You can use these affiliate links to get a board for $2 and also get $60 worth of New User Coupons at: https://jlcpcb.com/?from=Anders_N
 
 And in case you also want to order a 3D-printed case you can use this link. 
-How to Get a $7 3D Printing Coupon: https://3d.jlcpcb.com/?from=Anders3DP
+How to Get a $7 3D Printing Coupon: https://jlc3dp.com/?from=Anders_N
