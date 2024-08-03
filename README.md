@@ -2,12 +2,29 @@
  
 This is meant to be a cheap way to program W27C512 EEPROMs which require 14V erasure voltage and 12V programming voltage... Or basically any other 24/28/32 pin ROM requiring from 5V to 27V programming/erasure voltage. 
 
-You can either make your own, get a PCB from JLCPCB using the guide below or order a kit with SMD components presoldered from iMania.dk (sockets available if needed).
-Kits with SMD components presoldered are available from my store, iMania.dk: https://www.imania.dk/index.php?currency=EUR&cPath=204&sort=5a&language=en
+You can either make your own, get a PCB from JLCPCB using the guide below or order a kit with SMD components presoldered from [iMania.dk](https://www.imania.dk/index.php?currency=EUR&cPath=204&sort=5a&language=en) (sockets available if needed).
+Kits with SMD components presoldered are available from my store, [iMania.dk](https://www.imania.dk/index.php?currency=EUR&cPath=204&sort=5a&language=en)
 
 Requires a dev board with a processor or microcontroller. Like a [65uino](https://github.com/AndersBNielsen/65uino) or Arduino Uno for instance. 
 
-Software is in progress, some 6502 assembly sample code is available in my 65uino repo. Arduino library planned (watch for updates).
+## Software
+Software is in progress, 6502 assembly code is available in the [65uino repo](https://github.com/AndersBNielsen/65uino) (to be separated and moved here "soon"). 
+
+Arduino sketch is available in this repo's [/software](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/tree/main/software/Arduino/ArduinoProgrammerFirmwarePrototype)
+
+Both the 6502 firmware (65uino) and the Arduino sketch use the command line python scripts in this repo for burning and reading ROMs. 
+
+read_binary.py reads a ROM via serial. 
+
+send_binary.py burns a ROM via serial.
+
+send_command.py issues commands (erase for instance)
+
+### Firestarter firmware
+There's an alternative firmware and software available in the form of Henols's [Firestarter](https://github.com/henols/firestarter)
+Firestarter is recommended if you just want to program ROMs cheaply and don't care too much about the technical details. 
+
+## Rev 0 photos (The current Rev 1 also has a voltage divider for reading VPP/VEP)
 
 ![Relatively-Universal-ROM-programmer-rev0-front-assembled](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/assets/7676834/0a7f2735-8641-42c2-a1d2-de253550fb94)
 ![Romprogrammer-assembled-back](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/assets/7676834/a7d42e57-f92c-425c-8056-8d52cf872a45)
