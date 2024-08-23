@@ -113,7 +113,7 @@ void loop() {
         byte cAddrH = Serial.read();
         cAddr = cAddrH << 8;
         cAddr |= cAddrL;
-        romsize = (Serial.read() << 8); //Reads stoppage a.k.a. the high byte of ROM size
+        romsize = (static_cast<uint32_t>(Serial.read()) << 8); //Reads stoppage a.k.a. the high byte of ROM size
         if (romsize == 0) romsize = 65536; //Need a fix to support A17+
         Serial.end();
         display.clearDisplay();
