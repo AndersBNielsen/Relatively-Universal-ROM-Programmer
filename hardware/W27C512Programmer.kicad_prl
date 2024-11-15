@@ -3,14 +3,16 @@
     "active_layer": 31,
     "active_layer_preset": "",
     "auto_track_width": false,
+    "hidden_netclasses": [],
     "hidden_nets": [],
     "high_contrast_mode": 0,
     "net_color_mode": 1,
     "opacity": {
-      "pads": 1.0,
-      "tracks": 1.0,
+      "images": 0.6,
+      "pads": 0.5699999928474426,
+      "tracks": 0.9599999785423279,
       "vias": 1.0,
-      "zones": 0.6
+      "zones": 0.5899999737739563
     },
     "ratsnest_display_mode": 0,
     "selection_filter": {
@@ -62,8 +64,14 @@
       35,
       36
     ],
-    "visible_layers": "ffcfff0_ffffffff",
+    "visible_layers": "ffcfff4_ffffffff",
     "zone_display_mode": 0
+  },
+  "git": {
+    "repo_password": "",
+    "repo_type": "",
+    "repo_username": "",
+    "ssh_key": ""
   },
   "meta": {
     "filename": "W27C512Programmer.kicad_prl",
