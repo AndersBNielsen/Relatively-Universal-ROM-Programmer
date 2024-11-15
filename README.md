@@ -44,7 +44,7 @@ Documentation will be updated with FAQ.
 This project is kindly sponsored by JLCPCB. They offer cheap, professional looking PCBs and super fast delivery.
 
 Step 1: Get the gerber file zip package from the /hardware folder
-[hardware/UniversalProgrammerRev1b0.zip](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/blob/main/hardware/UniversalProgrammerRev1b0.zip) for instance.
+/hardware/rev2/rev2-1316.zip for instance.
 
 Step 2: Upload to JLCPCB [https://jlcpcb.com](https://jlcpcb.com/?from=Anders_N)
 
@@ -58,7 +58,7 @@ Step 3: Pick your color, surface finish and order.
 
 If you want JLCPCB to assemble a board, the BOM and placement files are also in the repo. 
 
-You can use these affiliate links to get a board for $2 and also get $60 worth of New User Coupons at: https://jlcpcb.com/?from=Anders_N
+You can use these affiliate links to get a board for $2 and also get $80 worth of New User Coupons at: https://jlcpcb.com/?from=Anders_N
 
 And in case you also want to order a 3D-printed case you can use this link. 
 How to Get a $7 3D Printing Coupon: https://jlc3dp.com/?from=Anders_N
