@@ -2268,6 +2268,152 @@
 				)
 			)
 		)
+		(symbol "Device:Polyfuse"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "F"
+				(at -2.54 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Polyfuse"
+				(at 2.54 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 1.27 -5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Resettable fuse, polymeric positive temperature coefficient"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "resettable fuse PTC PPTC polyfuse polyswitch"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "*polyfuse* *PTC*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Polyfuse_0_1"
+				(rectangle
+					(start -0.762 2.54)
+					(end 0.762 -2.54)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0 -2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.524 2.54) (xy -1.524 1.524) (xy 1.524 -1.524) (xy 1.524 -2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "Polyfuse_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "Device:R_Pack04"
 			(pin_names
 				(offset 0) hide)
@@ -9063,6 +9209,16 @@
 	)
 	(wire
 		(pts
+			(xy 78.74 157.48) (xy 80.01 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6eda1bc2-fa25-4ab6-ac0e-420c26d58bb8")
+	)
+	(wire
+		(pts
 			(xy 57.15 32.385) (xy 60.325 32.385)
 		)
 		(stroke
@@ -9180,16 +9336,6 @@
 			(type default)
 		)
 		(uuid "757a4481-2ceb-4d54-a2c7-dc7d57f7d646")
-	)
-	(wire
-		(pts
-			(xy 71.12 157.48) (xy 80.01 157.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "757ac004-bd9e-4e78-a256-fd300508de6e")
 	)
 	(wire
 		(pts
@@ -9793,7 +9939,7 @@
 	)
 	(wire
 		(pts
-			(xy 152.4 165.1) (xy 156.21 165.1)
+			(xy 165.1 156.21) (xy 168.91 156.21)
 		)
 		(stroke
 			(width 0)
@@ -11603,7 +11749,7 @@
 	)
 	(wire
 		(pts
-			(xy 152.4 161.29) (xy 156.21 161.29)
+			(xy 165.1 152.4) (xy 168.91 152.4)
 		)
 		(stroke
 			(width 0)
@@ -12084,7 +12230,7 @@
 	)
 	(text "8.83V to 21.92V \nVout = vref * (R1/R2+1)"
 		(exclude_from_sim no)
-		(at 64.77 151.13 0)
+		(at 90.17 157.988 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -12095,7 +12241,7 @@
 	)
 	(text "VPP/VPE"
 		(exclude_from_sim no)
-		(at 79.756 154.559 0)
+		(at 80.772 154.686 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -12975,7 +13121,7 @@
 	)
 	(global_label "P31"
 		(shape input)
-		(at 156.21 165.1 0)
+		(at 168.91 156.21 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -12985,7 +13131,7 @@
 		)
 		(uuid "22a5a72a-9152-46aa-9e11-9644f40a6ff4")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 162.23 165.1 0)
+			(at 174.93 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13481,7 +13627,7 @@
 	)
 	(global_label "~{RW}"
 		(shape input)
-		(at 152.4 165.1 180)
+		(at 165.1 156.21 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13491,7 +13637,7 @@
 		)
 		(uuid "a91c22ae-57a5-4905-b99f-b36b21fc15e1")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 147.3476 165.1 0)
+			(at 160.0476 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13524,7 +13670,7 @@
 	)
 	(global_label "P2"
 		(shape input)
-		(at 156.21 161.29 0)
+		(at 168.91 152.4 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13534,7 +13680,7 @@
 		)
 		(uuid "b1230222-bb11-48df-a91f-aabb898e2fa0")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 161.0205 161.29 0)
+			(at 173.7205 152.4 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13832,7 +13978,7 @@
 	)
 	(global_label "A16"
 		(shape input)
-		(at 152.4 161.29 180)
+		(at 165.1 152.4 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13842,7 +13988,7 @@
 		)
 		(uuid "fbfce033-7b96-4e4c-8ab3-f8f5a6b50cc7")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 146.5614 161.29 0)
+			(at 159.2614 152.4 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14175,7 +14321,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(uuid "04dfde1d-4d0e-40ee-ae69-66e3e1692018")
 		(property "Reference" "J6"
 			(at 194.945 119.38 0)
@@ -15564,7 +15710,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "16613cae-4559-4825-9e18-f9d9d7c0989b")
 		(property "Reference" "J7"
@@ -16201,7 +16347,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(uuid "2d73175d-db6f-4ed6-876f-8f297fe90d7a")
 		(property "Reference" "J2"
 			(at 22.225 45.085 0)
@@ -16664,7 +16810,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(uuid "315c4db1-30d0-431e-be6a-0b34e330535e")
 		(property "Reference" "J3"
 			(at 30.48 20.32 0)
@@ -16906,7 +17052,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "45aaa444-db7d-41bd-81fd-61f2231d2424")
 		(property "Reference" "J4"
@@ -17221,7 +17367,7 @@
 			)
 		)
 		(property "Value" "4k7"
-			(at 67.31 179.578 90)
+			(at 68.834 179.324 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18650,7 +18796,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6bf73889-7ddd-4dfd-bf02-35acdcdb87d5")
 		(property "Reference" "J8"
@@ -19286,7 +19432,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7d0a48b2-159a-45ac-8d5e-cd1ff1a12896")
 		(property "Reference" "J1"
@@ -19915,10 +20061,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "86827bd9-2a17-46ca-b8c0-ad28e3a87f18")
 		(property "Reference" "R13"
-			(at 227.33 146.0499 0)
+			(at 225.298 144.526 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19927,7 +20072,7 @@
 			)
 		)
 		(property "Value" "4k7"
-			(at 227.33 148.5899 0)
+			(at 226.568 149.098 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20829,6 +20974,83 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:Polyfuse")
+		(at 74.93 157.48 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "960e735c-bc99-4b59-a7c8-1cd38ee190e4")
+		(property "Reference" "F1"
+			(at 74.93 151.13 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Polyfuse"
+			(at 71.882 152.908 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Fuse:Fuse_1812_4532Metric"
+			(at 80.01 156.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 74.93 157.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resettable fuse, polymeric positive temperature coefficient"
+			(at 74.93 157.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C269125"
+			(at 74.93 157.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "f48edc3c-eb96-4843-b221-5c7b9022caa4")
+		)
+		(pin "1"
+			(uuid "c3d377c4-f50f-4c9e-baaf-ecb1c7e38354")
+		)
+		(instances
+			(project ""
+				(path "/019f16b9-c943-44db-aa5e-c001925deb8a"
+					(reference "F1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+5V")
 		(at 172.72 172.72 0)
 		(unit 1)
@@ -21292,7 +21514,7 @@
 		(exclude_from_sim yes)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(uuid "a22b4e30-0afd-4217-8b6c-f3a1b5e88936")
 		(property "Reference" "JP4"
 			(at 179.07 64.77 0)
@@ -22549,7 +22771,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "cb30808c-494d-418d-977b-a24f4d0b895a")
 		(property "Reference" "J5"
@@ -23315,7 +23537,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(uuid "d970ea42-6f77-419f-9961-aa21af803ce4")
 		(property "Reference" "U5"
 			(at 211.5694 21.59 0)
@@ -23354,6 +23576,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 209.55 58.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C146583"
 			(at 209.55 58.42 0)
 			(effects
 				(font
@@ -23865,7 +24096,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(uuid "df2a741a-2d64-4d64-b365-327db97ffdbe")
 		(property "Reference" "C11"
 			(at 77.47 174.244 0)
@@ -24588,7 +24819,7 @@
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
@@ -24649,7 +24880,7 @@
 		(exclude_from_sim yes)
 		(in_bom no)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(uuid "f478e54c-ba03-4402-ad98-bdd726583164")
 		(property "Reference" "JP5"
 			(at 187.706 106.934 0)
@@ -24928,7 +25159,7 @@
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
-		(dnp yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f8a9164c-e5b6-48ae-a73c-55bc3f8fec11")
 		(property "Reference" "A1"
@@ -25167,10 +25398,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "f9dbc0c6-ab79-4ab4-9f37-75459d983242")
 		(property "Reference" "R17"
-			(at 220.98 144.7799 0)
+			(at 215.9 143.256 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -25179,7 +25409,7 @@
 			)
 		)
 		(property "Value" "4k7"
-			(at 220.98 147.3199 0)
+			(at 220.218 148.082 90)
 			(effects
 				(font
 					(size 1.27 1.27)
