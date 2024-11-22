@@ -8,7 +8,22 @@ Kits with SMD components presoldered are available from my store, [iMania.dk](ht
 Requires a dev board with a processor or microcontroller. Like a [65uino](https://github.com/AndersBNielsen/65uino) or Arduino Uno for instance. 
 
 ## Software
-Software is in progress, 6502 assembly code is available in the [65uino repo](https://github.com/AndersBNielsen/65uino) (to be separated and moved here "soon"). 
+
+#1 Don't attach the Programmer shield while power is on.
+
+#2 Don't turn on power if the controller (Arduino/65uino/Nucleo board) isn't programmed with appropriate firmware. 
+
+#3 Don't insert a ROM in the socket until you're ready to write it. Don't leave a ROM in the socket during reset or programming. 
+
+### Firestarter firmware
+If you just want to get started fast, there's an amazing third party firmware and desktop software available in the form of Henols's [Firestarter](https://github.com/henols/firestarter)
+Firestarter is recommended if you just want to program ROMs cheaply and don't care too much about the technical details. 
+
+Remember: Don't insert a ROM in the socket until you're ready to write it. Don't leave a ROM in the socket during reset or programming. Program Arduino before attaching shield. Attach shield before powering on Arduino. 
+
+### Original proof of concept code
+
+6502 assembly code is available in the [65uino repo](https://github.com/AndersBNielsen/65uino) (to be separated and moved here "soon"). 
 
 Arduino sketch is available in this repo's [/software](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/tree/main/software/Arduino/ArduinoProgrammerFirmwarePrototype)
 
@@ -20,11 +35,8 @@ send_binary.py burns a ROM via serial.
 
 send_command.py issues commands (erase for instance)
 
-### Firestarter firmware
-There's an alternative firmware and software available in the form of Henols's [Firestarter](https://github.com/henols/firestarter)
-Firestarter is recommended if you just want to program ROMs cheaply and don't care too much about the technical details. 
 
-## Rev 0 photos (The current Rev 1 also has a voltage divider for reading VPP/VEP)
+## Rev 0 photos (The Rev 1 added a voltage divider for reading VPP/VEP, Rev2 has replaced the jumpers with transistors for automatic pin count selection)
 
 ![Relatively-Universal-ROM-programmer-rev0-front-assembled](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/assets/7676834/0a7f2735-8641-42c2-a1d2-de253550fb94)
 ![Romprogrammer-assembled-back](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/assets/7676834/a7d42e57-f92c-425c-8056-8d52cf872a45)
