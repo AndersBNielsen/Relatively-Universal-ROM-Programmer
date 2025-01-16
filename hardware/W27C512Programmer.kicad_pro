@@ -49,7 +49,7 @@
         "silk_text_upright": false,
         "zones": {
           "45_degree_only": false,
-          "min_clearance": 0.254
+          "min_clearance": 0.0
         }
       },
       "diff_pair_dimensions": [
@@ -514,8 +514,8 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "rev2",
-      "pos_files": "rev2",
+      "plot": "Rev2.1/",
+      "pos_files": "Rev2.1/",
       "specctra_dsn": "",
       "step": "",
       "svg": "",
@@ -525,7 +525,7 @@
   },
   "schematic": {
     "annotate_start_num": 0,
-    "bom_export_filename": "rev2/W27C512Programmerbom.csv",
+    "bom_export_filename": "Rev2.1/W27C512ProgrammerBOM.csv",
     "bom_fmt_presets": [],
     "bom_fmt_settings": {
       "field_delimiter": ",",
