@@ -6,7 +6,7 @@
 	(paper "A4")
 	(title_block
 		(title "Relatively Universal ROM Programmer")
-		(rev "0")
+		(rev "2.1")
 		(company "Anders Nielsen")
 		(comment 1 "https://abnielsen.com")
 		(comment 2 "\"Insert some open permissive hardware license here\"")
