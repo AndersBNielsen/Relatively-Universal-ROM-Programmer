@@ -17,7 +17,7 @@ Requires a dev board with a processor or microcontroller. Like a [65uino](https:
 
 ### Firestarter firmware
 If you just want to get started fast, there's an amazing third party firmware and desktop software available in the form of Henols's [Firestarter](https://github.com/henols/firestarter)
-Firestarter is recommended if you just want to program ROMs cheaply and don't care too much about the technical details. 
+Firestarter is recommended if you just want to program ROMs cheaply, easily, and don't care too much about the technical details. 
 
 Remember: Don't insert a ROM in the socket until you're ready to write it. Don't leave a ROM in the socket during reset or programming. Program Arduino before attaching shield. Attach shield before powering on Arduino. 
 
@@ -43,7 +43,34 @@ send_command.py issues commands (erase for instance)
 ![ROMprogrammer-assembled](https://github.com/AndersBNielsen/Relatively-Universal-ROM-Programmer/assets/7676834/76f9c717-3eef-4829-b960-7c5585a4fdbc)
 
 ## Documentation
-The Relatively Universal ROM Programmer relies on the standard JEDEC ROM footprint and common "high voltage" pins to work. BJT drivers handle putting the 12-27V programming voltage on the relevant pins. Which "high voltage" pins are active can be selected in software but jumpers have to be set for the different package sizes. A common configuration is to connect "A" to 5V and B to "A13", which covers the Winbond 27C512 and many other common 28 pin ROMs. This configuration also covers the 32 pin SST39SF010 (5V programmable).
+The Relatively Universal ROM Programmer relies on the standard JEDEC ROM footprint and common "high voltage" pins to work. BJT drivers handle putting the 12-27V programming voltage on the relevant pins. Which "high voltage" pins are active can be selected in software and BJT drivers control which pins can be used as VCC. 
+The 12-27V for programming is manually set using a small screwdriver and a trimpot with a readout in software or multimeter if your micro doesn't have analog pins (65uino).
+
+## Jumpers
+
+### Revision 2.X
+Revision 2 and later doesn't need physical jumpers to select 24, 28 and 32 pin ROMs, as it has transistor drivers to pass either VCC or the appropriate address line to the correct physical pin.
+
+Revision 2 and 2.1 *do* however have a jumper to connect high voltage to pin 1 of 28 pin ROMs (JP4) - do *NOT* leave this jumper in place when programming 32 pin ROMs as it will most likely damage the ROM, the programmer, or both. 
+
+<img width="1334" alt="JP4" src="https://github.com/user-attachments/assets/7122f735-b504-4849-a045-24fc4247cd34" />
+
+Revision 2.2 also has JP4 but rotated 90 degrees (green) and another option of powering the VPP pin of 2716-type ROMs (red). 
+Again: *DO NOT* leave JP4 in place in either rotation if you are not programming 28 pin ROMs with VPP on pin 1 (check the ROM's datasheet or "firestarter info") or 2716 type ROMs with a very nonstandard VPP pin. 
+
+
+<img width="761" alt="image" src="https://github.com/user-attachments/assets/caa09fc9-7daf-441d-b80b-a88764f96f02" />
+
+### Revision 1.x
+Revision 1.x require physical jumpers to connect VCC to 24 and 28 pin ROMs
+
+A common configuration is to connect "A" to 5V and B to "A13", which covers the Winbond 27C512 and many other common 28 pin ROMs. This configuration also covers the 32 pin SST39SF010 (5V programmable).
+
+Documentation is on the back of Revision 1.x boards
+<img width="667" alt="image" src="https://github.com/user-attachments/assets/d8ce287d-f66f-4936-98dc-9dbbb9253c3d" />
+
+
+### Setting the voltage 
 
 The "high voltage", VPE, is calibrated using the trimpot on the front of the board after activating the regulator in software. Please be aware that some dev boards WILL put VPE on several pins during reset - especially if reset is held down manually. This MAY damage a chip in the socket (especially if it's only 5V programmable). 
 Clarity: It's best to NOT reset the controller with a ROM in the socket to be on the safe side. 
