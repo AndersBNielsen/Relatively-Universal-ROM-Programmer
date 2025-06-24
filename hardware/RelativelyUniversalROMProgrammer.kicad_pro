@@ -127,7 +127,7 @@
         "min_hole_to_hole": 0.254,
         "min_microvia_diameter": 0.2,
         "min_microvia_drill": 0.1,
-        "min_resolved_spokes": 2,
+        "min_resolved_spokes": 1,
         "min_silk_clearance": 0.0,
         "min_text_height": 0.8,
         "min_text_thickness": 0.08,
@@ -514,8 +514,8 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "Rev2.1/",
-      "pos_files": "Rev2.1/",
+      "plot": "Rev2.2/",
+      "pos_files": "Rev2.2/",
       "specctra_dsn": "",
       "step": "",
       "svg": "",
@@ -525,7 +525,7 @@
   },
   "schematic": {
     "annotate_start_num": 0,
-    "bom_export_filename": "Rev2.1/W27C512ProgrammerBOM.csv",
+    "bom_export_filename": "Rev2.2/W27C512Programmer.csv",
     "bom_fmt_presets": [],
     "bom_fmt_settings": {
       "field_delimiter": ",",
@@ -556,7 +556,7 @@
           "group_by": false,
           "label": "Datasheet",
           "name": "Datasheet",
-          "show": true
+          "show": false
         },
         {
           "group_by": false,
@@ -599,7 +599,7 @@
       "group_symbols": true,
       "name": "",
       "sort_asc": true,
-      "sort_field": "Reference"
+      "sort_field": "Value"
     },
     "connection_grid_size": 50.0,
     "drawing": {
