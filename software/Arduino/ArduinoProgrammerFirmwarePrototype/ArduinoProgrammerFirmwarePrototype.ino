@@ -47,9 +47,13 @@ const int ANALOG_PIN = A2; // Analog pin connected to VEP
 
 uint32_t romsize = 4096; //We need to support more than 16 address bits
 byte pattern = 0xAA;
+// Global variables to store the previous LSB and MSB values
+byte prevLSB = 0xFF;
+byte prevMSB = 0xFF;
 uint16_t cAddr = 0;
-byte buffer[128]; 
 #define BUFFERSIZE 128
+byte buffer[BUFFERSIZE]; 
+
 byte rompincount = 28; 
 
 uint32_t baudrate = 19200;
@@ -158,6 +162,9 @@ void loop() {
 
       if (currentCommand.command == 0x02) { 
         byte controlbyte = 0;
+        prevLSB = 0xFF;
+        prevMSB = 0xFF;
+        cAddr = 0;
         //Burn ROM from serial
         currentCommand.blockSize = Serial.read();
         currentCommand.stopPage = Serial.read();
@@ -177,8 +184,6 @@ void loop() {
         display.print("Blocksize: ");
         display.print(currentCommand.blockSize);
         display.display();
-        latchControlByte((VPE_TO_VPP | REG_DISABLE | VCC28PIN ) & controlbyte);
-        delay(50); //Settle before enabling
         latchControlByte(controlbyte); //Burn ROM config
         delay(200);
         Serial.begin(baudrate);
@@ -187,10 +192,11 @@ void loop() {
           while (!Serial.available()) { 
           ;; //Maybe we don't need it
            }
+          memset(buffer, 0xFF, BUFFERSIZE);            // Clear buffer with 0xFF
           // Read the block of data
           size_t bytesRead = Serial.readBytes((char *)buffer, currentCommand.blockSize);
             // Check if we've read the entire block
-          if (bytesRead == currentCommand.blockSize) {
+          if (bytesRead > 0 && bytesRead <= currentCommand.blockSize) {
             // Process the buffer data
            Serial.end();
            delayMicroseconds(20);
@@ -277,18 +283,27 @@ latchControlByte(0x00);
 
 void writefromBuffer(uint16_t addr, uint16_t len) {
   DDRD = 0xFF; //Output
+
+  // Initialise CE state for 24 pin 
+  if (rompincount == 24) {
+      PORTB &= ~(ROM_CE);                     // Ensure Chip Enable intially starts LOW for 2716 chips 
+  }
+
   for (int i = 0; i < len; i++){
     latchAddress(addr);
     PORTD = buffer[i];
-    if (rompincount = 28) {
+    if (rompincount == 28) {
     PORTB &= ~(ROM_CE);
     delayMicroseconds(101);
     PORTB |= ROM_CE; 
     }
-    if (rompincount = 24) {
+    if (rompincount == 24) {
     PORTB |= ROM_CE; //High pulse for 2716/TMS2516
     delay(50);
     PORTB &= ~(ROM_CE);
+    delay(50);                          // 50ms pulse length performs all other 24pin ROM write
+    PORTB |= ROM_CE;                    // End all other 24pin write pulse
+    PORTB &= ~(ROM_CE);                 // Return Chip Enable low in readiness for next address to be written for 2716
     }
     addr++;
   } 
@@ -353,10 +368,6 @@ void latchControlByte(byte controlByte) {
   PORTB &= ~(CTRL_LE);
 }
 
-// Global variables to store the previous LSB and MSB values
-byte prevLSB = 1;
-byte prevMSB = 1;
-
 void latchAddress(uint16_t address) {
   // Extract the least significant byte
   byte lsb = address & 0xFF;
@@ -377,6 +388,8 @@ void latchAddress(uint16_t address) {
 
   // Check if MSB has changed
   if (msb != prevMSB) {
+    // Update prevMSB before ORing in VCC for 24pin ROMs, otherwise above check will always be true
+    prevMSB = msb;
     if (rompincount == 24) {
     msb |= 0b00100000; //Enable VCC on "A13"
     }
@@ -386,8 +399,6 @@ void latchAddress(uint16_t address) {
     PORTB |= RMSBLE;
     // Set RMSBLE pin LOW to unlatch higher 8 bits of address (MSB)
     PORTB &= ~RMSBLE;
-    // Update prevMSB
-    prevMSB = msb;
   }
 }
 
