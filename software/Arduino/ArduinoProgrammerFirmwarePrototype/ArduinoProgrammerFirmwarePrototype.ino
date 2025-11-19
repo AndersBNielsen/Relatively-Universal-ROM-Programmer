@@ -168,8 +168,7 @@ void setup() {
     
     // Initialize the OLED display
     if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-        //latchControlByte(0x40);
-        for(;;);
+        while(1);                               // Critical failure - halt
     }
 
     display.clearDisplay();
@@ -178,7 +177,7 @@ void setup() {
     display.println("Boot complete.");
     display.display();
     
-    Serial.begin(BAUDRATE);                     // Open serial port - Can't latch things when serial is enabled (begin)
+    Serial.begin(BAUDRATE);                     // Open serial port - Can't latch things when serial is enabled
     delayMicroseconds(SERIAL_SETTLE_US);        // Let serial settle
 }
 
@@ -218,21 +217,6 @@ void loop() {
     } else {
         handleButton();
         displayMenu();
-    /*
-    if (digitalRead(12) == 0) {
-      Serial.end();
-      enableRegulator();
-      display.println("Press RST after calibrating VEP");
-      while (1) {
-            displayVEP();
-            delay(17);
-        }
-      } else {
-        display.print(".");
-        display.display();
-        delay(500);
-      }
-    */
     }
 } // Loop
 
@@ -435,29 +419,6 @@ void displayVEP() {
     display.print(v_vep, 2);                            // Display voltage with 2 decimal places
     display.println(" V");
     display.display();
-}
-
-//For single byte writes 
-void writeByte(uint16_t address, byte data) {
-    latchAddress(address);
-    byte controlbyte = 0;
-    if (romPinCount == 24) {
-        controlbyte = (REG_DISABLE | P1_VPP_ENABLE); //Enabling P1_VPP_Enable for JP4 (Leave OPEN for 28 pin ROMs!!))
-    }
-    if (romPinCount == 28) {
-        controlbyte = (VPE_TO_VPP | REG_DISABLE | VPE_ENABLE | VCC28PIN);
-    }
-    
-    latchControlByte((VPE_TO_VPP | REG_DISABLE) & controlbyte);
-    delay(50); //Settle before enabling
-    latchControlByte(controlbyte );
-    //delay(255); //What works on 65uino
-    DDRD = 0xFF; //Output
-    PORTD = data; 
-    PORTB &= ~(ROM_CE);
-    delayMicroseconds(101);
-    PORTB |= ROM_CE;
-    latchControlByte(0x00); 
 }
 
 // Perform data write to selected ROM for the current address parameter
