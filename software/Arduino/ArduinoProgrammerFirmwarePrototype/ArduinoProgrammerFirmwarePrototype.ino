@@ -142,6 +142,11 @@ byte prevMSB = 0xFF;                             // Previous MSB latchaddress st
 // ===== Serial Communication =====
 constexpr uint32_t BAUDRATE = 19200;             // Default device BAUDRATE
 
+// ===== Command Byte Actions =====
+constexpr byte CMD_MODE = 0xAA;                  // Command mode flag
+constexpr byte CMD_DUMP = 0x01;                  // Command - Dump ROM to serial
+constexpr byte CMD_BURN = 0x02;                  // Command - Burn ROM from serial
+constexpr byte CMD_ERASE = 0x03;                 // Command - Erase ROM
 struct Command {                                 // Struct to hold the current command, block size, and stop page
     uint8_t command;
     uint8_t blockSize;
@@ -151,148 +156,57 @@ Command currentCommand;                          // Instance of Command to store
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-    // Set pins D0-D7 as outputs
-    DDRD = 0xFF; // Set all D0-D7 pins as outputs
-    // Set control signals as outputs
-    DDRB |= RLSBLE | RMSBLE | ROM_OE | CTRL_LE | ROM_CE;
-  
-    // Set all pins using direct port manipulation
-    PORTD = 0;
+    delay(100);                                 // Without this behaviour is inconsistent/problematic - either LCD or Shield related!
+    initial_pin_state();                        // Initialise port B, port D, address, VCC and VPP pin states
     
-    // Set all latch pins HIGH using direct port manipulation and disable ROM 
-    PORTB |= RLSBLE | RMSBLE | ROM_OE | CTRL_LE | ROM_CE | USRBTN;
-    delayMicroseconds(1);
-    // Set all latch pins LOW using direct port manipulation
-    PORTB &= ~(RLSBLE | RMSBLE | CTRL_LE); // Set pins D8, D9, D11 low
-  
     // Initialize the OLED display
     if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-        //  latchControlByte(0x40);
+        //latchControlByte(0x40);
         for(;;);
     }
-    
-    delay(100);                                 // Without this behaviour is inconsistent/problematic - either LCD or Shield related!
-   
-    // Clear the display
+
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE);
     display.println("Boot complete.");
     display.display();
-    readAddress(0); //Init address latch
-    latchControlByte(VCC28PIN|P1_VPP_ENABLE); //Can't latch things when serial is enabled
-    delay(1); //Avoid serial framing error
+    
     Serial.begin(BAUDRATE);                     // Open serial port - Can't latch things when serial is enabled (begin)
+    delayMicroseconds(500);                     // Let serial settle
 }
 
 // Keep checking for data in the serial buffer, otherwise process button and display menu
 void loop() {
     if (Serial.available()) {
         byte incomingByte = Serial.read();          // Read first byte from the serial receive buffer
-        if (incomingByte == 0xAA ) {            // Check for incoming Command Mode byte
-            while (!Serial.available()) { 
-                ;; //Maybe we don't need it
-            }
+
+        if (incomingByte == CMD_MODE ) {            // Check for incoming Command Mode byte
+            while (!Serial.available());            // Wait for more data to arrive in the serial receive buffer
+            
             currentCommand.command = Serial.read(); // Read from buffer current command 
-      
-            if (currentCommand.command == 0x01) {       // Process selected command
-                //Dump ROM via serial
-                currentCommand.blockSize = Serial.read();               // Read in the blocksize
-                byte cAddrL = Serial.read();                            // Read start address LSB
-                byte cAddrH = Serial.read();                            // Read start address MSB
-                cAddr = (cAddrH << 8) | cAddrL;                         // Assemble 16-bit start address from MSB and LSB
-                
-                romSize = (static_cast<uint32_t>(Serial.read()) << 8);  //Reads stoppage a.k.a. the high byte of ROM size
-                if (romSize == 0) romSize = 65536;                      // Need a fix to support A17+
-                romPinCount = Serial.read();                            // Read in the ROM Pin count
-                Serial.end();                                           // Release shared pins
-                if (romPinCount == 24) latchAddress(VCC24PIN << 8);     // Enable VCC for 24 pin ROM - shift to MSB
-                if (romPinCount == 28) latchControlByte(VCC28PIN);      // Enable VCC for 28 pin ROM
-                display.clearDisplay();
-                display.print(F("Sending ROM via serial..."));
-                display.print("Blocksize: ");
-                display.print(currentCommand.blockSize);
-                display.display();
-                // loop over the total number of blocks in the ROM
-                for (int i = 0; i < romSize/currentCommand.blockSize; i++) {
-                    // Read data into buffer
-                    for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
-                        buffer[addr] = readAddress(cAddr);              // Read ROM data into buffer
-                        cAddr++;
-                    }
-                    delayMicroseconds(500); //Avoid framing errors - value can be tuned depending on BAUDRATE
-                    Serial.begin(BAUDRATE);                             // Open serial port
-                    Serial.write(0xAA);                                 // Transmit the frame start block indicator
-                    for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
-                        Serial.write(buffer[addr]);  
-                    }
-                    Serial.end();                                       // Release pins for next read cycle
-                }
+
+            switch (currentCommand.command) {       // Process selected command
+                case CMD_DUMP:                      
+                    dumpROM();
+                    break;
+                case CMD_BURN:
+                    burnROM();
+                    break;
+                case CMD_ERASE:
+                    eraseROM();
+                    break;
+                default:
+                    display.clearDisplay();
+                    display.print(F("Unknown Command"));
+                    break;
             }
-      
-            if (currentCommand.command == 0x03) {
-                byte vendor = Serial.read();
-                byte device = Serial.read();
-                uint16_t romid = (static_cast<uint16_t>(vendor) << 8) | device;
-                Serial.end();                                   // Release shared UART pins
-                display.clearDisplay();
-                display.println(F("Erasing ROM with ID: "));
-                display.println(romid, HEX);
-                display.display();
-                eraseW27C512(romid);
-                delay(3000);
-            }
-      
-            if (currentCommand.command == 0x02) { 
-                byte controlByte = 0x00;                         // initialise control byte
-                prevLSB = 0xFF;
-                prevMSB = 0xFF;
-                cAddr = 0;
-                //Burn ROM from serial
-                currentCommand.blockSize = Serial.read();        // read the blocksize
-                currentCommand.stopPage = Serial.read();         // read the stop page - currently unused!
-                romPinCount = Serial.read();                     // read the ROM pin count
-                Serial.end();                                    // Release shared pins
-                if (romPinCount == 24) {
-                    latchAddress(VCC24PIN << 8);                 // Enable 24 pin VCC - shift to MSB
-                    controlByte = (REG_DISABLE | P1_VPP_ENABLE); // Enabling P1_VPP_Enable for JP4 (Leave OPEN for 28 pin ROMs!!))
-                    PORTB &= ~(ROM_CE);                          // Make sure chip is enabled
-                }
-                if (romPinCount == 28) {
-                    controlByte = (VPE_TO_VPP | REG_DISABLE | VPE_ENABLE | VCC28PIN);
-                }
-        
-                display.clearDisplay();
-                display.println(F("Burning ROM from serial..."));
-                display.print("Blocksize: ");
-                display.print(currentCommand.blockSize);
-                display.display();
-                latchControlByte(controlByte);                   // Apply ROM control pin configuration
-                delay(200);
-                Serial.begin(BAUDRATE);                          // Open serial port
-                // Process each block of binary source file data via serial until no more bytes read
-                while (1) { 
-                    Serial.write(0xAA);                          // Send ready signal
-                    while (!Serial.available()) {                // Wait for data to arrive in the serial receive buffer
-                        ;; //Maybe we don't need it
-                    }
-                    memset(buffer, 0xFF, BUFFERSIZE);            // Clear buffer with 0xFF
-                    // Read the block of data
-                    size_t bytesRead = Serial.readBytes((char *)buffer, currentCommand.blockSize);
-                    // Check if we've read the entire block
-                    if (bytesRead > 0 && bytesRead <= currentCommand.blockSize) {
-                        // Process the buffer data
-                        Serial.end();                            // Release shared pins
-                        delayMicroseconds(20);                   // Let the serial settle
-                        writefromBuffer(cAddr, currentCommand.blockSize);
-                    } else {
-                        display.println("Bad block");
-                        break;
-                    }
-                    delayMicroseconds(20);
-                    Serial.begin(BAUDRATE);                      // Open serial port back up
-                }
-            }
+            
+            Serial.flush();                         // Wait for any prior transmission to complete
+            Serial.end();                           // Release shared UART pins
+
+            initial_pin_state();                    // Reinitialise port pin states
+            Serial.begin(BAUDRATE);                 // Open serial port
+            delayMicroseconds(500);                 // Let serial settle
         } 
     } else {
         handleButton();
@@ -312,8 +226,151 @@ void loop() {
         delay(500);
       }
     */
-    } //Serial 0xAA
+    }
 } //Loop
+
+// Configure the initial arduino/rurp pin states
+void initial_pin_state() {
+    // Set digital pin input/output direction
+    DDRD = 0xFF;                                            // Initialise all data/address pins as outputs (D0-D7 pins)
+    DDRB = 0x00;                                            // Initialise all digital pins D8-D13 as inputs
+    DDRB |= RLSBLE | RMSBLE | ROM_OE | CTRL_LE | ROM_CE;    // Set specific digital pins as outputs
+    
+    // Clear all values and latch
+    PORTD = 0x00;                                           // Set all data/address pins to 0 (D0-D7 pins)
+    delayMicroseconds(5);                                   // Let Address/Data settle
+    PORTB |= RLSBLE | RMSBLE | CTRL_LE;                     // Set RLSBLE, RMSBLE, CTRL_LE pin HIGH 
+    PORTB &= ~(RLSBLE | RMSBLE | CTRL_LE);                  // Set RLSBLE, RMSBLE, CTRL_LE pin LOW to latch zero values
+
+    // Set ROM defaults
+    PORTB |= ROM_OE | ROM_CE;                               // Initialise Output Enabled, Chip Enable, User button pins to HIGH
+    romPinCount = ROM_PIN_COUNT;                            // Default rom pin count
+    romSize = ROM_SIZE;                                     // We need to support more than 16 address bits
+
+    PORTB |= USRBTN;                                        // Set internal pull-up resistor for USRBTN
+
+    // Clear address state tracking
+    prevLSB = 0xFF;                                         // Reset Previous LSB latchAddress() state tracking 
+    prevMSB = 0xFF;                                         // Reset Previous MSB latchAddress() state tracking 
+    cAddr = 0;                                              // Reset current address state tracking
+}
+
+// Read ROM data and dump over serial
+void dumpROM() {
+    currentCommand.blockSize = Serial.read();               // Read in the blocksize
+    byte cAddrL = Serial.read();                            // Read start address LSB
+    byte cAddrH = Serial.read();                            // Read start address MSB
+    cAddr = (cAddrH << 8) | cAddrL;                         // Assemble 16-bit start address from MSB and LSB
+    
+    romSize = (static_cast<uint32_t>(Serial.read()) << 8);  // Reads stoppage a.k.a. the high byte of ROM size
+    if (romSize == 0) romSize = 65536;                      // Need a fix to support A17+
+    romPinCount = Serial.read();                            // Read in the ROM Pin count
+    
+    Serial.end();                                           // Release shared pins
+    
+    if (romPinCount == 24) latchAddress(VCC24PIN << 8);     // Enable VCC for 24 pin ROM - shift to MSB
+    if (romPinCount == 28) latchControlByte(VCC28PIN);      // Enable VCC for 28 pin ROM
+    
+    display.clearDisplay();
+    display.print(F("Sending ROM via serial..."));
+    display.print("Blocksize: ");
+    display.print(currentCommand.blockSize);
+    display.display();
+
+    // loop over the total number of blocks in the ROM
+    for (int i = 0; i < romSize/currentCommand.blockSize; i++) {
+        // Read data into buffer
+        for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
+            buffer[addr] = readAddress(cAddr);              // Read ROM data into buffer
+            cAddr++;
+        }
+
+        delayMicroseconds(500);                             // Avoid framing errors - value can be tuned depending on BAUDRATE
+        Serial.begin(BAUDRATE);                             // Open serial port
+        
+        Serial.write(0xAA);                                 // Transmit the frame start block indicator
+        
+        for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
+            Serial.write(buffer[addr]);  
+        }
+        
+        Serial.end();                                       // Release pins for next read cycle
+    }
+}
+
+// Read serial data and burn to ROM
+void burnROM() {
+    byte controlByte = 0x00;                         // initialise control byte
+    
+    currentCommand.blockSize = Serial.read();        // read the blocksize
+    currentCommand.stopPage = Serial.read();         // read the stop page - currently unused!
+    romPinCount = Serial.read();                     // read the ROM pin count
+    
+    Serial.end();                                    // Release shared pins
+    
+    if (romPinCount == 24) {
+        latchAddress(VCC24PIN << 8);                 // Enable 24 pin VCC - shift to MSB
+        controlByte = (REG_DISABLE | P1_VPP_ENABLE); // Enabling P1_VPP_Enable for JP4 (Leave OPEN for 28 pin ROMs!!))
+        PORTB &= ~(ROM_CE);                          // Make sure chip is enabled
+    }
+
+    if (romPinCount == 28) {
+        controlByte = (VPE_TO_VPP | REG_DISABLE | VPE_ENABLE | VCC28PIN);
+    }
+
+    latchControlByte(controlByte);                   // Apply ROM control pin configuration
+
+    display.clearDisplay();
+    display.println(F("Burning ROM from serial..."));
+    display.print("Blocksize: ");
+    display.print(currentCommand.blockSize);
+    display.display();
+    
+    delay(200);
+    Serial.begin(BAUDRATE);                          // Open serial port
+
+    // Process each block of binary source file data via serial until no more bytes read
+    while (1) { 
+        Serial.write(0xAA);                          // Send ready signal
+        
+        while (!Serial.available());                 // Wait for data to arrive in the serial receive buffer
+        
+        memset(buffer, 0xFF, BUFFERSIZE);            // Clear buffer with 0xFF
+        
+        // Read the block of data
+        size_t bytesRead = Serial.readBytes((char *)buffer, currentCommand.blockSize);
+        
+        // Check if we've read the entire block
+        if (bytesRead > 0 && bytesRead <= currentCommand.blockSize) {
+            // Process the buffer data
+            Serial.end();                            // Release shared pins
+            delayMicroseconds(20);                   // Let the serial settle
+            writefromBuffer(cAddr, currentCommand.blockSize);
+        } else {
+            display.println("Bad block");
+            break;
+        }
+        delayMicroseconds(20);
+        Serial.begin(BAUDRATE);                      // Open serial port back up
+    }
+}
+
+// erase ROM data
+void eraseROM() {
+    byte vendor = Serial.read();
+    byte device = Serial.read();
+    uint16_t romid = (static_cast<uint16_t>(vendor) << 8) | device;
+
+    Serial.end();                                   // Release shared UART pins
+
+    display.clearDisplay();
+    display.println(F("Erasing ROM with ID: "));
+    display.println(romid, HEX);
+    display.display();
+
+    eraseW27C512(romid);
+    delay(3000);
+}
 
 // Enable Regulator on the RURP shield
 void enableRegulator() {
