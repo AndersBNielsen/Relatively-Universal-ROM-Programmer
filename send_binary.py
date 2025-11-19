@@ -5,7 +5,7 @@ import serial
 def send_file(serial_port, baud_rate, file_path, block_size, rom_pincount  ):
     try:
         # Open serial port
-        ser = serial.Serial(serial_port, baud_rate, timeout=0.001, inter_byte_timeout=0.001, dsrdtr=True)
+        ser = serial.Serial(serial_port, baud_rate, timeout=5, inter_byte_timeout=0.001, dsrdtr=True)
         # Disable the DTR signal to prevent reset
         ser.dtr = False
         time.sleep(2)
@@ -20,30 +20,56 @@ def send_file(serial_port, baud_rate, file_path, block_size, rom_pincount  ):
             ser.write(bytes([block_size]))
             ser.write(b'\x10') # Stop page.. Fix
             ser.write(bytes([rom_pincount])) # ROM pin count
+            block_count = 0
+            error_count = 0
+            transfer_started = False
+            start_time = time.time()
             # Read the file and send in blocks
             while True:
                 # Wait for the recipient's readiness signal (AA byte)
                 byte = ser.read(1)
+                
                 if byte == b'\xAA':
-                    # Read the next block of data
+                    if not transfer_started:
+                        print("✓ Arduino ready - starting transfer...\n")
+                        transfer_started = True
+
+                    block_count += 1
                     data = f.read(block_size)
+                    
                     if not data:
+                        ser.write(b"\x00")    # send a zero-length block to indicate EOF to arduino
+                        ser.flush()
+                        elapsed = time.time() - start_time
+                        rate = block_count / elapsed
+                        print("")
+                        print(f"Block {block_count} | {elapsed:.1f}s | {rate:.1f} blocks/s")
+                        print(f"\n{'='*50}")
+                        print(f"Transfer Summary:")
+                        print(f"  Blocks sent: {block_count}")
+                        print(f"  Time: {elapsed:.2f}s")
+                        print(f"  Rate: {block_count/elapsed:.1f} blocks/s")
+                        if error_count > 0:
+                            print(f"  Errors: {error_count}")
+                        print(f"{'='*50}")
                         break
-                    # Send the data block
+                    
+                    # Print block stats for first and then every 5 blocks
+                    if block_count % 5 == 0 or block_count == 1:
+                        elapsed = time.time() - start_time
+                        rate = block_count / elapsed
+                        if block_count != 1: print("")
+                        print(f"Block {block_count} | {elapsed:.1f}s | {rate:.1f} blocks/s")
+                        if block_count == 1: print(".", end="", flush=True)
+                    else:
+                        print(".", end="", flush=True)
+                    
                     ser.write(data)
-                    #print(".", end="")
-                # Record end time
-                else:
-                    pass
-
-
-        end_time = time.time()
-        # Calculate total duration
-        total_duration = end_time - start_time
-        print(f"File sent in {total_duration:.2f} seconds")
-
-        print("\nFile sent successfully!")
-
+                    ser.flush()
+                    time.sleep(0.02)  # 20ms delay to let Arduino process
+                elif byte != b'\x00':   # surpress 0x00 bytes - caused as a result of D0/D1 being low during programming??
+                    error_count += 1
+                    print(f"\nWarning: Expected 0xAA, got 0x{byte.hex()} (error #{error_count})")
     except Exception as e:
         print("Error:", e)
     finally:

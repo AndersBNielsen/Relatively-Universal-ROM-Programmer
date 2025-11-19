@@ -75,7 +75,6 @@
       2025-11-19 – Major enhancements and 2716-specific improvements (TheSubWayKing)
  --------------------------------------------------------------------------------------------------
 */
-
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -129,8 +128,16 @@ constexpr uint8_t REG_DISABLE   = 0b10000000;    // Disable regulator
 // ===== EPROM Chip Parameters =====
 constexpr uint8_t ROM_PIN_COUNT = 28;            // Default ROM pin count
 constexpr uint32_t ROM_SIZE = 4096;              // Default ROM size
+constexpr uint32_t MAX_ROM_SIZE_16BIT = 65536;   // Maximum 16 Bit ROM size
 uint8_t romPinCount = ROM_PIN_COUNT;             // ROM pin count
 uint32_t romSize = ROM_SIZE;                     // ROM size - We need to support more than 16 address bits
+
+// ===== Timing Constants =====
+constexpr uint16_t SERIAL_SETTLE_US = 500;       // Default serial settle time in microseconds
+constexpr uint8_t STARTUP_DELAY_MS = 100;        // Delay required at startup for Display/Shield settle?
+constexpr uint8_t ADDRESS_DATA_SETTLE_US = 5;    // Default latch settle time in microseconds
+constexpr uint8_t ROM_24PIN_WRITE_PULSE_MS = 50; // 24 Pin ROM write pulse duration in milliseconds
+constexpr uint8_t ROM_28PIN_WRITE_PULSE_US = 100;// 28 Pin ROM write pulse duration in microseconds
 
 // ===== EPROM Data Buffer & Address State =====
 constexpr uint8_t BUFFERSIZE = 128;              // Default buffersize
@@ -154,9 +161,9 @@ struct Command {                                 // Struct to hold the current c
 };
 Command currentCommand;                          // Instance of Command to store the current action being performed
 
-// the setup function runs once when you press reset or power the board
+// The setup function runs once when you press reset or power the board
 void setup() {
-    delay(100);                                 // Without this behaviour is inconsistent/problematic - either LCD or Shield related!
+    delay(STARTUP_DELAY_MS);                    // Without this behaviour is inconsistent/problematic - either LCD or Shield related!
     initial_pin_state();                        // Initialise port B, port D, address, VCC and VPP pin states
     
     // Initialize the OLED display
@@ -172,7 +179,7 @@ void setup() {
     display.display();
     
     Serial.begin(BAUDRATE);                     // Open serial port - Can't latch things when serial is enabled (begin)
-    delayMicroseconds(500);                     // Let serial settle
+    delayMicroseconds(SERIAL_SETTLE_US);        // Let serial settle
 }
 
 // Keep checking for data in the serial buffer, otherwise process button and display menu
@@ -206,7 +213,7 @@ void loop() {
 
             initial_pin_state();                    // Reinitialise port pin states
             Serial.begin(BAUDRATE);                 // Open serial port
-            delayMicroseconds(500);                 // Let serial settle
+            delayMicroseconds(SERIAL_SETTLE_US);    // Let serial settle
         } 
     } else {
         handleButton();
@@ -227,7 +234,7 @@ void loop() {
       }
     */
     }
-} //Loop
+} // Loop
 
 // Configure the initial arduino/rurp pin states
 void initial_pin_state() {
@@ -238,7 +245,7 @@ void initial_pin_state() {
     
     // Clear all values and latch
     PORTD = 0x00;                                           // Set all data/address pins to 0 (D0-D7 pins)
-    delayMicroseconds(5);                                   // Let Address/Data settle
+    delayMicroseconds(ADDRESS_DATA_SETTLE_US);              // Let Address/Data settle
     PORTB |= RLSBLE | RMSBLE | CTRL_LE;                     // Set RLSBLE, RMSBLE, CTRL_LE pin HIGH 
     PORTB &= ~(RLSBLE | RMSBLE | CTRL_LE);                  // Set RLSBLE, RMSBLE, CTRL_LE pin LOW to latch zero values
 
@@ -263,9 +270,15 @@ void dumpROM() {
     cAddr = (cAddrH << 8) | cAddrL;                         // Assemble 16-bit start address from MSB and LSB
     
     romSize = (static_cast<uint32_t>(Serial.read()) << 8);  // Reads stoppage a.k.a. the high byte of ROM size
-    if (romSize == 0) romSize = 65536;                      // Need a fix to support A17+
+    if (romSize == 0) romSize = MAX_ROM_SIZE_16BIT;         // Need a fix to support A17+
     romPinCount = Serial.read();                            // Read in the ROM Pin count
     
+    // Validate block size
+    if (currentCommand.blockSize > BUFFERSIZE) {
+        display.print(F("Error: Block size too large"));
+        return;
+    }
+
     Serial.end();                                           // Release shared pins
     
     if (romPinCount == 24) latchAddress(VCC24PIN << 8);     // Enable VCC for 24 pin ROM - shift to MSB
@@ -277,41 +290,57 @@ void dumpROM() {
     display.print(currentCommand.blockSize);
     display.display();
 
+    // Calculate totalBlocks, rounding up to ensure any remainder bytes get their own block
+    uint16_t totalBlocks = (romSize + currentCommand.blockSize - 1) / currentCommand.blockSize;
+
     // loop over the total number of blocks in the ROM
-    for (int i = 0; i < romSize/currentCommand.blockSize; i++) {
-        // Read data into buffer
-        for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
+    for (uint32_t blockNum = 0; blockNum < totalBlocks; blockNum++) {
+        // Calculate bytes to read in the final block
+        uint16_t bytesToRead = currentCommand.blockSize;
+        if (cAddr + bytesToRead > romSize) {
+            bytesToRead = romSize - cAddr;
+        }
+
+        // Read entire block
+        for (uint16_t addr = 0; addr < bytesToRead; addr++) {
             buffer[addr] = readAddress(cAddr);              // Read ROM data into buffer
             cAddr++;
         }
-
-        delayMicroseconds(500);                             // Avoid framing errors - value can be tuned depending on BAUDRATE
         Serial.begin(BAUDRATE);                             // Open serial port
-        
+        delayMicroseconds(SERIAL_SETTLE_US);                // Brief settle time to avoid framing errors
+
         Serial.write(0xAA);                                 // Transmit the frame start block indicator
-        
-        for (uint16_t addr = 0; addr < currentCommand.blockSize; addr++) {
-            Serial.write(buffer[addr]);  
-        }
-        
+        Serial.flush();                                     // Wait for start block transmission to complete
+     
+        Serial.write(buffer, bytesToRead);                  // Send entire buffer at once
+        Serial.flush();                                     // Wait for transmission to complete
+
         Serial.end();                                       // Release pins for next read cycle
     }
 }
 
 // Read serial data and burn to ROM
 void burnROM() {
+    bool dataProcessed = false;                      // initialise flag to indicate data has been processed
     byte controlByte = 0x00;                         // initialise control byte
+    static const byte EOF_BYTE = 0x00;               // define end of file as empty byte
     
     currentCommand.blockSize = Serial.read();        // read the blocksize
     currentCommand.stopPage = Serial.read();         // read the stop page - currently unused!
     romPinCount = Serial.read();                     // read the ROM pin count
     
+    // Validate block size
+    if (currentCommand.blockSize > BUFFERSIZE) {
+        display.print(F("Error: Block size too large"));
+        return;
+    }
+
     Serial.end();                                    // Release shared pins
     
     if (romPinCount == 24) {
         latchAddress(VCC24PIN << 8);                 // Enable 24 pin VCC - shift to MSB
-        controlByte = (REG_DISABLE | P1_VPP_ENABLE); // Enabling P1_VPP_Enable for JP4 (Leave OPEN for 28 pin ROMs!!))
         PORTB &= ~(ROM_CE);                          // Make sure chip is enabled
+        controlByte = (REG_DISABLE | P1_VPP_ENABLE); // Enabling P1_VPP_Enable for JP4 (Leave OPEN for 28 pin ROMs!!))
     }
 
     if (romPinCount == 28) {
@@ -326,13 +355,14 @@ void burnROM() {
     display.print(currentCommand.blockSize);
     display.display();
     
-    delay(200);
     Serial.begin(BAUDRATE);                          // Open serial port
+    delayMicroseconds(SERIAL_SETTLE_US);             // Let the serial come up and settle
 
     // Process each block of binary source file data via serial until no more bytes read
     while (1) { 
         Serial.write(0xAA);                          // Send ready signal
-        
+        Serial.flush();                              // Wait for 0xAA transmission to complete
+
         while (!Serial.available());                 // Wait for data to arrive in the serial receive buffer
         
         memset(buffer, 0xFF, BUFFERSIZE);            // Clear buffer with 0xFF
@@ -340,18 +370,29 @@ void burnROM() {
         // Read the block of data
         size_t bytesRead = Serial.readBytes((char *)buffer, currentCommand.blockSize);
         
-        // Check if we've read the entire block
-        if (bytesRead > 0 && bytesRead <= currentCommand.blockSize) {
-            // Process the buffer data
-            Serial.end();                            // Release shared pins
-            delayMicroseconds(20);                   // Let the serial settle
-            writefromBuffer(cAddr, currentCommand.blockSize);
-        } else {
-            display.println("Bad block");
+        // check for EOF_BYTE and data processing complete, zero length block, no data, bad block, otherwise process data block
+        if (bytesRead == 1 && buffer[0] == EOF_BYTE && dataProcessed) {
+            display.println(F("Transfer Complete"));
             break;
+        } else if (bytesRead == 1 && buffer[0] == 0x00 ) {
+            display.println(F("Error: Bad zero length block"));
+            break;
+        } else if (bytesRead == 0) {
+            display.println(F("Error: No data"));
+            break;
+        } else if (bytesRead > currentCommand.blockSize) {
+            display.println(F("Error: Bad block"));
+            break;      
+        } else {
+            Serial.end();                            // Release shared pins
+            delayMicroseconds(SERIAL_SETTLE_US);     // Let the serial settle
+
+            writefromBuffer(cAddr, bytesRead);
+            dataProcessed = true;                    // Set data processed indicator
+         
+            Serial.begin(BAUDRATE);                  // Open serial port back up
+            delayMicroseconds(SERIAL_SETTLE_US);     // Let the serial settle
         }
-        delayMicroseconds(20);
-        Serial.begin(BAUDRATE);                      // Open serial port back up
     }
 }
 
@@ -375,8 +416,7 @@ void eraseROM() {
 // Enable Regulator on the RURP shield
 void enableRegulator() {
     byte outputState = REG_DISABLE;  // Set REG_DISABLE bit
-    // Set all pins using direct port manipulation
-    latchControlByte(outputState);
+    latchControlByte(outputState);   // Set all pins using direct port manipulation
 }
 
 // Show VEP on oled display to facilitate manual adjustment
@@ -436,14 +476,14 @@ void writefromBuffer(uint16_t addr, uint16_t len) {
         
         if (romPinCount == 28) {
             PORTB &= ~(ROM_CE);                 // Low pulse sets up ROM write for 28pin chips
-            delayMicroseconds(101);
+            delay(ROM_28PIN_WRITE_PULSE_US);    // 100us pulse length performs the 28pin ROM write
             PORTB |= ROM_CE;                    // Return CE to high
         }
         if (romPinCount == 24) {
             PORTB |= ROM_CE;                    // High pulse allows ROM write for 2716/TMS2516
-            delay(50);                          // 50ms pulse length performs the 2716/TMS2516 ROM write
+            delay(ROM_24PIN_WRITE_PULSE_MS);    // 50ms pulse length performs the 2716/TMS2516 ROM write
             PORTB &= ~(ROM_CE);                 // Low pulse allows ROM write for all other 24pin chips, whilst ending 2716 pulse
-            delay(50);                          // 50ms pulse length performs all other 24pin ROM write
+            delay(ROM_24PIN_WRITE_PULSE_MS);    // 50ms pulse length performs all other 24pin ROM write
             PORTB |= ROM_CE;                    // End all other 24pin write pulse
             PORTB &= ~(ROM_CE);                 // Return Chip Enable low in readiness for next address to be written for 2716
         }
@@ -493,7 +533,7 @@ byte readAddress(uint16_t addr) {
     latchAddress(addr);                         // Set the address pins
     DDRD = 0x00;                                // Set all digital pins (0-7) as Input
     PORTB &= ~(ROM_OE | ROM_CE);                // Set pins Output Enable and Chip Enable LOW 
-    delayMicroseconds(20);                      // Let Address/Data settle 
+    delayMicroseconds(ADDRESS_DATA_SETTLE_US);  // Let Address/Data settle 
     byte val = PIND;                            // Read the value from all digital output pins
     PORTB |= (ROM_OE);                          // Set Output Enable HIGH, leave CE LOW
     return val;
@@ -501,11 +541,11 @@ byte readAddress(uint16_t addr) {
 
 // Push a 8-bit value onto the arduino D0-D7 pins and latch
 void latchControlByte(byte controlByte) {
-    if (romPinCount == 28) controlByte |= VCC28PIN; //Enable VCC for 28 pin ROMs
+    if (romPinCount == 28) controlByte |= VCC28PIN; // Enable VCC for 28 pin ROMs
   
     DDRD = 0xFF;                                    // Set all digital pins (0-7) as Output
     PORTD = controlByte;                            // Push the control value onto the pins
-  
+    delayMicroseconds(ADDRESS_DATA_SETTLE_US);      // Let Address/Data settle
     PORTB |= CTRL_LE;                               // Set CTRL_LE pin HIGH to latch
     PORTB &= ~(CTRL_LE);                            // Set CTRL_LE pin LOW to unlatch
 }
@@ -518,6 +558,7 @@ void latchAddress(uint16_t address) {
     // Check if LSB has changed
     if (lsb != prevLSB) {
         PORTD = lsb;                                // Write LSB address to PORTD pins
+        delayMicroseconds(ADDRESS_DATA_SETTLE_US);  // Let Address/Data settle
         PORTB |= RLSBLE;                            // Set RLSBLE pin HIGH to latch lower 8 bits of address (LSB)
         PORTB &= ~RLSBLE;                           // Set RLSBLE pin LOW to unlatch lower 8 bits of address (LSB)
         prevLSB = lsb;                              // Update prevLSB
@@ -531,6 +572,7 @@ void latchAddress(uint16_t address) {
             msb |= VCC24PIN;                        // Enable VCC on "A13"
         }
         PORTD = msb;                                // Write MSB address to PORTD pins
+        delayMicroseconds(ADDRESS_DATA_SETTLE_US);  // Let Address/Data settle
         PORTB |= RMSBLE;                            // Set RMSBLE pin HIGH to latch higher 8 bits of address (MSB)
         PORTB &= ~RMSBLE;                           // Set RMSBLE pin LOW to unlatch higher 8 bits of address (MSB)
     }
@@ -627,7 +669,7 @@ uint16_t blankCheck () {
     display.println(F("Checking if ROM is blank.."));
     display.display();
     uint32_t i;
-    for (i = 0; i < 65537; i++) {
+    for (i = 0; i < MAX_ROM_SIZE_16BIT; i++) {
         byte data = readAddress(i);
         if (data != 0xFF) {
             display.print(data,HEX);
@@ -637,6 +679,5 @@ uint16_t blankCheck () {
             return 1;               // Not blank
         } 
     }
-    if (i == 65537) i = 0;
-    return i;                       // blank
+    return 0;                       // blank
 }
