@@ -4,7 +4,7 @@
   File:       ArduinoProgrammerFirmwarePrototype.ino
   Target:     Arduino Uno (ATmega328P)
   License:    GNU GPL v3.0 (as per original project)
-  
+
   Original Author:
       Anders Nielsen (2024)
       https://abnielsen.com/65uino
@@ -25,8 +25,8 @@
  --------------------------------------------------------------------------------------------------
   Hardware Context:
       This firmware is written for the “Relatively Universal ROM Programmer”
-      (RURP) shield designed by Anders Nielsen for the Arduino Uno.  
-      
+      (RURP) shield designed by Anders Nielsen for the Arduino Uno.
+
       The RURP shield supports a broad variety of parallel ROM/EPROM/EEPROM
       devices through a flexible address/data bus, latch bank, and mode
       control lines (OE, CE, WE). The 2716 EPROM, being one of the earliest
@@ -73,6 +73,8 @@
       2024-08-01 - Update ArduinoProgrammerFirmwarePrototype.ino (BizarroBull)
       2025-08-17 - 2716 / TMS2532 support (AndersBNielsen)
       2025-11-19 – Major enhancements and 2716-specific improvements (TheSubWayKing)
+      2025-12-01 - Fix software side of TMS2532 support RO so far, handle exceptional pinouts (MichaelGindonis)
+
  --------------------------------------------------------------------------------------------------
 */
 #include <Wire.h>
@@ -87,7 +89,7 @@ constexpr int8_t OLED_RESET = -1;                // Reset pin # (or -1 if sharin
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // ===== Menu Items and User Input =====
-constexpr char* const MENU_ITEMS[] = {           // Menu item options 
+constexpr char* const MENU_ITEMS[] = {           // Menu item options
     "Calibrate VEP",
     "Display ROM ID",
     "Blank check ROM",
@@ -95,7 +97,7 @@ constexpr char* const MENU_ITEMS[] = {           // Menu item options
 };
 constexpr uint8_t MENU_ITEM_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 constexpr uint16_t LONG_PRESS_TIME = 1000;       // Long press threshold in milliseconds
-uint8_t menuIndex = 0;                           // Track USR button press menu selection 
+uint8_t menuIndex = 0;                           // Track USR button press menu selection
 unsigned long buttonPressTime = 0;               // Track USR button press duration
 bool buttonPressed = false;                      // Track USR button pressed
 
@@ -146,6 +148,27 @@ uint16_t cAddr = 0;                              // Current address being proces
 byte prevLSB = 0xFF;                             // Previous LSB latchaddress state tracking
 byte prevMSB = 0xFF;                             // Previous MSB latchaddress state tracking
 
+// ===== Exceptional Pinout EPROMs State =====
+constexpr byte EXCEPTIONAL_PINOUT_NONE = 0;
+constexpr byte EXCEPTIONAL_PINOUT_TMS2532 = 1; // 24 Pin ROMs like TMS2532, where A11 on CE(pin18) and VPP on pine 21
+// add new Exceptional Pinouts here and increment EXCEPTIONAL_PINOUT_END accordingly ( or could use enum )
+constexpr byte EXCEPTIONAL_PINOUT_END = 2;
+byte exceptionalPinout = EXCEPTIONAL_PINOUT_NONE;
+constexpr uint16_t A11_16_BIT_MASK  = 0b0000100000000000;
+constexpr uint16_t A11_MSB_AND_MASK = 0b11110111;
+// TMS2532 / HN462532(G) notes:
+// FIXME need to  determine whether reading or writing when setting LATCH address to PGM is not LOW on writing
+//      * try to use currentCommand.command
+//   * Pin 20
+//      * possibly operations should be reordered eg, for TMS2532 latch the MSB to TOGGLE PGM( pin 20) typically called OE)
+//      *  when writing it should only be made low when all else is properly set, then back to high after Delay.
+//   * Pin 21 
+//      * what is usually A11 on pin 21 is VPP.. will say it is "low" 
+//      * VPP on pin21 should be low when reading or maybe doesn't matter... check new schematic..
+//      * Might not be "wise" to try writing to these roms on older boards without Schottky diode on A11
+//   * Pin 18
+//     * Normally CE, it is A11
+
 // ===== Serial Communication =====
 constexpr uint32_t BAUDRATE = 19200;             // Default device BAUDRATE
 
@@ -165,7 +188,7 @@ Command currentCommand;                          // Instance of Command to store
 void setup() {
     delay(STARTUP_DELAY_MS);                    // Without this behaviour is inconsistent/problematic - either LCD or Shield related!
     initial_pin_state();                        // Initialise port B, port D, address, VCC and VPP pin states
-    
+
     // Initialize the OLED display
     if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         while(1);                               // Critical failure - halt
@@ -176,7 +199,7 @@ void setup() {
     display.setTextColor(SSD1306_WHITE);
     display.println("Boot complete.");
     display.display();
-    
+
     Serial.begin(BAUDRATE);                     // Open serial port - Can't latch things when serial is enabled
     delayMicroseconds(SERIAL_SETTLE_US);        // Let serial settle
 }
@@ -188,11 +211,11 @@ void loop() {
 
         if (incomingByte == CMD_MODE ) {            // Check for incoming Command Mode byte
             while (!Serial.available());            // Wait for more data to arrive in the serial receive buffer
-            
+
             currentCommand.command = Serial.read(); // Read from buffer current command 
 
             switch (currentCommand.command) {       // Process selected command
-                case CMD_DUMP:                      
+                case CMD_DUMP:
                     dumpROM();
                     break;
                 case CMD_BURN:
@@ -206,14 +229,14 @@ void loop() {
                     display.print(F("Unknown Command"));
                     break;
             }
-            
+
             Serial.flush();                         // Wait for any prior transmission to complete
             Serial.end();                           // Release shared UART pins
 
             initial_pin_state();                    // Reinitialise port pin states
             Serial.begin(BAUDRATE);                 // Open serial port
             delayMicroseconds(SERIAL_SETTLE_US);    // Let serial settle
-        } 
+        }
     } else {
         handleButton();
         displayMenu();
@@ -226,7 +249,7 @@ void initial_pin_state() {
     DDRD = 0xFF;                                            // Initialise all data/address pins as outputs (D0-D7 pins)
     DDRB = 0x00;                                            // Initialise all digital pins D8-D13 as inputs
     DDRB |= RLSBLE | RMSBLE | ROM_OE | CTRL_LE | ROM_CE;    // Set specific digital pins as outputs
-    
+
     // Clear all values and latch
     PORTD = 0x00;                                           // Set all data/address pins to 0 (D0-D7 pins)
     delayMicroseconds(ADDRESS_DATA_SETTLE_US);              // Let Address/Data settle
@@ -252,11 +275,51 @@ void dumpROM() {
     byte cAddrL = Serial.read();                            // Read start address LSB
     byte cAddrH = Serial.read();                            // Read start address MSB
     cAddr = (cAddrH << 8) | cAddrL;                         // Assemble 16-bit start address from MSB and LSB
-    
+
     romSize = (static_cast<uint32_t>(Serial.read()) << 8);  // Reads stoppage a.k.a. the high byte of ROM size
     if (romSize == 0) romSize = MAX_ROM_SIZE_16BIT;         // Need a fix to support A17+
     romPinCount = Serial.read();                            // Read in the ROM Pin count
-    
+
+    // FIXME: This could be a function like exceptionalPinoutCheck() and 
+    // check for cases that may have exceptional pinout cases and wait for a possible message about exceptionalPinout
+    // eg TMS2532 , HN46532, HN46532G
+    if ((romPinCount == 24) )// && ( romSize == 16  )) //FIXME Maybe rom size wrong //echo to display
+    {
+       // wait up to 2 serial settles for an extra byte regarding exceptions and and assume none if nothing recieved
+       int count_settles = 2;
+       exceptionalPinout = EXCEPTIONAL_PINOUT_NONE;
+       while (count_settles > 0)
+       {
+           count_settles--;
+           if (Serial.available())
+           {
+               exceptionalPinout = Serial.read(); // Read exceptional pinout
+               count_settles = 0; //don't wait for any more byte.
+               // Debug with display for now.
+               display.clearDisplay();
+               display.print(F("Exceptional Pinout # "));
+               display.print(exceptionalPinout);
+               display.print("Pausing 5 seconds");
+               display.display();
+               delay(5000); // Pause 5000ms
+               //Maybe add confirm with user button
+           }
+           else
+           {
+               // wait a little
+               delayMicroseconds(SERIAL_SETTLE_US); // Let serial settle
+           }
+       }
+       // check exceptionalPinout is within range
+       if ( exceptionalPinout >= EXCEPTIONAL_PINOUT_END )
+       {
+           // FIXME... test it from the python read
+           display.print(F("Error: exceptionalPinout not supported"));
+           return;
+       }
+
+    }
+
     // Validate block size
     if (currentCommand.blockSize > BUFFERSIZE) {
         display.print(F("Error: Block size too large"));
@@ -264,10 +327,10 @@ void dumpROM() {
     }
 
     Serial.end();                                           // Release shared pins
-    
+
     if (romPinCount == 24) latchAddress(VCC24PIN << 8);     // Enable VCC for 24 pin ROM - shift to MSB
     if (romPinCount == 28) latchControlByte(VCC28PIN);      // Enable VCC for 28 pin ROM
-    
+
     display.clearDisplay();
     display.print(F("Sending ROM via serial..."));
     display.print("Blocksize: ");
@@ -295,7 +358,7 @@ void dumpROM() {
 
         Serial.write(0xAA);                                 // Transmit the frame start block indicator
         Serial.flush();                                     // Wait for start block transmission to complete
-     
+
         Serial.write(buffer, bytesToRead);                  // Send entire buffer at once
         Serial.flush();                                     // Wait for transmission to complete
 
@@ -308,19 +371,20 @@ void burnROM() {
     bool dataProcessed = false;                      // initialise flag to indicate data has been processed
     byte controlByte = 0x00;                         // initialise control byte
     static const byte EOF_BYTE = 0x00;               // define end of file as empty byte
-    
+
     currentCommand.blockSize = Serial.read();        // read the blocksize
     currentCommand.stopPage = Serial.read();         // read the stop page - currently unused!
     romPinCount = Serial.read();                     // read the ROM pin count
-    
+
     // Validate block size
     if (currentCommand.blockSize > BUFFERSIZE) {
         display.print(F("Error: Block size too large"));
         return;
     }
+    // FIXME check for exceptions
 
     Serial.end();                                    // Release shared pins
-    
+
     if (romPinCount == 24) {
         latchAddress(VCC24PIN << 8);                 // Enable 24 pin VCC - shift to MSB
         PORTB &= ~(ROM_CE);                          // Make sure chip is enabled
@@ -338,22 +402,22 @@ void burnROM() {
     display.print("Blocksize: ");
     display.print(currentCommand.blockSize);
     display.display();
-    
+
     Serial.begin(BAUDRATE);                          // Open serial port
     delayMicroseconds(SERIAL_SETTLE_US);             // Let the serial come up and settle
 
     // Process each block of binary source file data via serial until no more bytes read
-    while (1) { 
+    while (1) {
         Serial.write(0xAA);                          // Send ready signal
         Serial.flush();                              // Wait for 0xAA transmission to complete
 
         while (!Serial.available());                 // Wait for data to arrive in the serial receive buffer
-        
+
         memset(buffer, 0xFF, BUFFERSIZE);            // Clear buffer with 0xFF
-        
+
         // Read the block of data
         size_t bytesRead = Serial.readBytes((char *)buffer, currentCommand.blockSize);
-        
+
         // check for EOF_BYTE and data processing complete, zero length block, no data, bad block, otherwise process data block
         if (bytesRead == 1 && buffer[0] == EOF_BYTE && dataProcessed) {
             display.println(F("Transfer Complete"));
@@ -366,14 +430,14 @@ void burnROM() {
             break;
         } else if (bytesRead > currentCommand.blockSize) {
             display.println(F("Error: Bad block"));
-            break;      
+            break;
         } else {
             Serial.end();                            // Release shared pins
             delayMicroseconds(SERIAL_SETTLE_US);     // Let the serial settle
 
             writefromBuffer(cAddr, bytesRead);
             dataProcessed = true;                    // Set data processed indicator
-         
+
             Serial.begin(BAUDRATE);                  // Open serial port back up
             delayMicroseconds(SERIAL_SETTLE_US);     // Let the serial settle
         }
@@ -408,7 +472,7 @@ void displayVEP() {
     int sensorValue = analogRead(ANALOG_PIN);           // Read voltage from analog pin A2
     float v_in = sensorValue * (V_REF / 1023.0);        // Convert ADC reading to voltage (assuming 5V reference voltage)
     float v_vep = v_in * (R1 + R2) / R2;                // Calculate voltage at VEP using voltage divider formula
-  
+
     // Display voltage on OLED display
     display.clearDisplay();
     display.setTextSize(1);
@@ -424,17 +488,18 @@ void displayVEP() {
 // Perform data write to selected ROM for the current address parameter
 void writefromBuffer(uint16_t addr, uint16_t len) {
     DDRD = 0xFF;                                // Set all digital pins (0-7) as Outputs
-  
-    // Initialise CE state for 24 pin 
+
+    // Initialise CE state for 24 pin
     if (romPinCount == 24) {
-        PORTB &= ~(ROM_CE);                     // Ensure Chip Enable intially starts LOW for 2716 chips 
+        PORTB &= ~(ROM_CE);                     // Ensure Chip Enable intially starts LOW for 2716 chips
     }
-    
-    // Write each buffer byte to ROM  
+
+    // Write each buffer byte to ROM
+    // Note: Compiler warning: comparison between signed and unsigned integer expressions [-Wsign-compare]
     for (int i = 0; i < len; i++){
         latchAddress(addr);
         PORTD = buffer[i];                      // Push buffer data for cuurent address (i) onto PORTD pins
-        
+
         if (romPinCount == 28) {
             PORTB &= ~(ROM_CE);                 // Low pulse sets up ROM write for 28pin chips
             delay(ROM_28PIN_WRITE_PULSE_US);    // 100us pulse length performs the 28pin ROM write
@@ -449,7 +514,7 @@ void writefromBuffer(uint16_t addr, uint16_t len) {
             PORTB &= ~(ROM_CE);                 // Return Chip Enable low in readiness for next address to be written for 2716
         }
         addr++;
-    } 
+    }
     cAddr = addr;
 }
 
@@ -491,19 +556,37 @@ uint16_t getROMID() {
 // Read a 16-bit address from the ROM and return the value
 byte readAddress(uint16_t addr) {
     DDRD = 0xFF;                                // Set all digital pins (0-7) as Output
+
+    //FIXME maybe makes sense to check A11 and make all masks for PORTB ahead of time instead of checking each time
     latchAddress(addr);                         // Set the address pins
     DDRD = 0x00;                                // Set all digital pins (0-7) as Input
-    PORTB &= ~(ROM_OE | ROM_CE);                // Set pins Output Enable and Chip Enable LOW 
+    switch (exceptionalPinout) {
+        case EXCEPTIONAL_PINOUT_NONE:
+            PORTB &= ~(ROM_OE | ROM_CE);            // Set pins Output Enable and Chip Enable LOW
+            break;
+        case EXCEPTIONAL_PINOUT_TMS2532:
+            PORTB &= ~(ROM_OE);                     // Set pin Output Enable LOW
+            // Check A11 and set Chip Enable es if it was CE
+            uint16_t address_check = addr & A11_16_BIT_MASK;
+            if (address_check == A11_16_BIT_MASK) {
+              PORTB |= (ROM_CE);                    // Set pin Chip Enable HIGH
+            }
+            else {
+              PORTB &= ~(ROM_CE);                   // Set pin Chip Enable LOW
+            }
+            break;
+    }
+
     delayMicroseconds(ADDRESS_DATA_SETTLE_US);  // Let Address/Data settle 
     byte val = PIND;                            // Read the value from all digital output pins
-    PORTB |= (ROM_OE);                          // Set Output Enable HIGH, leave CE LOW
+    PORTB |= (ROM_OE);                          // Set Output Enable HIGH, leave CE as it is.
     return val;
 }
 
 // Push a 8-bit value onto the arduino D0-D7 pins and latch
 void latchControlByte(byte controlByte) {
     if (romPinCount == 28) controlByte |= VCC28PIN; // Enable VCC for 28 pin ROMs
-  
+
     DDRD = 0xFF;                                    // Set all digital pins (0-7) as Output
     PORTD = controlByte;                            // Push the control value onto the pins
     delayMicroseconds(ADDRESS_DATA_SETTLE_US);      // Let Address/Data settle
@@ -514,8 +597,20 @@ void latchControlByte(byte controlByte) {
 // Push a 16-bit address onto the arduino D0-D7 pins for the each upper/lower byte
 void latchAddress(uint16_t address) {
     byte lsb = address & 0xFF;                      // Extract the least significant byte
-    byte msb = (address >> 8) & 0xFF;               // Extract the most significant byte
-
+    byte msb = 0;
+    // probably the best place to prevent A11 from being set when necessary.
+    switch (exceptionalPinout) {
+        case EXCEPTIONAL_PINOUT_NONE:
+          msb = (address >> 8) & 0xFF;               // Extract the most significant byte
+          break;
+        // FIXME use this when reading/blank check, maybe new latch MSB function for programming
+        case EXCEPTIONAL_PINOUT_TMS2532:
+          // set A11 is now on VPP set it low whwn reading
+          // Extract the most significant byte without A11
+          msb = (address >> 8) & A11_MSB_AND_MASK;
+          break;
+        // no default case yet... passing through this is an error.. halt and catch fire ;-)
+    }
     // Check if LSB has changed
     if (lsb != prevLSB) {
         PORTD = lsb;                                // Write LSB address to PORTD pins
@@ -524,11 +619,11 @@ void latchAddress(uint16_t address) {
         PORTB &= ~RLSBLE;                           // Set RLSBLE pin LOW to unlatch lower 8 bits of address (LSB)
         prevLSB = lsb;                              // Update prevLSB
     }
-  
+
     // Check if MSB has changed
     if (msb != prevMSB) {
         prevMSB = msb;                              // Update prevMSB before ORing in VCC for 24pin ROMs, otherwise above check will always be true
-        
+
         if (romPinCount == 24) {
             msb |= VCC24PIN;                        // Enable VCC on "A13"
         }
@@ -626,6 +721,7 @@ void handleSelection(int index) {
 
 // check if ROM is blank, return 1 if not blank otherwise return 0
 uint16_t blankCheck () {
+    // FIXME check for exceptions
     display.clearDisplay();
     display.println(F("Checking if ROM is blank.."));
     display.display();
@@ -638,7 +734,7 @@ uint16_t blankCheck () {
             display.println(i, HEX);
             display.display();
             return 1;               // Not blank
-        } 
+        }
     }
     return 0;                       // blank
 }
